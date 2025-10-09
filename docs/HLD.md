@@ -6,47 +6,20 @@
 
 UOS Libvirt Exporter 是一个单进程守护程序，采用以下架构模式：
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    Prometheus Server                        │
-│                    (定期抓取 /metrics)                      │
-└─────────────────────┬───────────────────────────────────────┘
-                      │ HTTP
-                      │
-┌─────────────────────▼───────────────────────────────────────┐
-│              UOS Libvirt Exporter                          │
-│  ┌─────────────────────────────────────────────────────┐   │
-│  │              HTTP Server (promhttp)                 │   │
-│  │              监听地址: :9100                      │   │
-│  └─────────────────────┬───────────────────────────────┘   │
-│                      │                                 │
-│  ┌───────────────────▼───────────────────────────────┐   │
-│  │           Metrics Registry & Collector             │   │
-│  │         ┌──────────────────────────────┐          │   │
-│  │         │   LibvirtCollector         │          │   │
-│  │         │  (实现 Collector 接口)      │          │   │
-│  │         └────────────┬─────────────────┘          │   │
-│  │                    │                              │   │
-│  │  ┌─────────────────▼─────────────────┐           │   │
-│  │  │     Connection Manager            │           │   │
-│  │  │  ┌──────────────────────────┐   │           │   │
-│  │  │  │  Libvirt Connection      │   │           │   │
-│  │  │  │  (URI: qemu:///system)   │   │           │   │
-│  │  │  └────────────┬─────────────┘   │           │   │
-│  │  │               │                  │           │   │
-│  │  │  ┌────────────▼─────────────┐   │           │   │
-│  │  │  │  Domain Metrics Fetcher   │   │           │   │
-│  │  │  │  (API 调用与指标转换)     │   │           │   │
-│  │  │  └──────────────────────────┘   │           │   │
-│  │  └───────────────────────────────────┘           │   │
-│  └────────────────────────────────────────────────────┘   │
-└─────────────────────┬───────────────────────────────────────┘
-                      │ libvirt API
-                      │
-┌─────────────────────▼───────────────────────────────────────┐
-│                    Libvirtd (QEMU/KVM)                    │
-│              (本地或远程虚拟化管理服务)                      │
-└─────────────────────────────────────────────────────────────┘
+```mermaid
+graph TD
+  PrometheusServer["Prometheus Server\n(定期抓取 /metrics)"] -->|HTTP| UOSLibvirtExporter["UOS Libvirt Exporter"]
+
+  UOSLibvirtExporter -->|监听地址: :9100| HTTPServer["HTTP Server (promhttp)"]
+  UOSLibvirtExporter --> MetricsRegistryCollector["Metrics Registry & Collector"]
+  
+  MetricsRegistryCollector --> LibvirtCollector["LibvirtCollector\n(实现 Collector 接口)"]
+  LibvirtCollector --> ConnectionManager["Connection Manager"]
+  
+  ConnectionManager --> LibvirtConnection["Libvirt Connection\n(URI: qemu:///system)"]
+  LibvirtConnection --> DomainMetricsFetcher["Domain Metrics Fetcher\n(API 调用与指标转换)"]
+  
+  DomainMetricsFetcher -->|libvirt API| Libvirtd["Libvirtd (QEMU/KVM)\n(本地或远程虚拟化管理服务)"]
 ```
 
 ### 1.2 核心组件
