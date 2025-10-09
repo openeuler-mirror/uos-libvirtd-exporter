@@ -77,7 +77,7 @@ graph TD
 ### 3.1 核心模块结构
 
 ```
-/home/wangqing/workspaces/code/uos-libvirtd-exporter/
+uos-libvirtd-exporter/
 ├── cmd/
 │   └── exporter/
 │       └── main.go              # 主程序入口
