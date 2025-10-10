@@ -49,12 +49,12 @@ func NewLibvirtCollector(uri string) (*LibvirtCollector, error) {
 	if err != nil {
 		return nil, err
 	}
-	
+
 	alive, err := conn.IsAlive()
 	if err != nil || !alive {
 		return nil, fmt.Errorf("connection is not alive")
 	}
-	
+
 	log.Println("Successfully connected to libvirt")
 
 	return &LibvirtCollector{
