@@ -15,7 +15,7 @@ func main() {
 		log.Fatalf("Failed to parse configuration: %v", err)
 	}
 
-	log.Printf("Starting uos-libvirtd-exporter %s", version)
+	log.Printf("Starting UOS Libvirt Exporter %s", version)
 	config.Log()
 
 	// Create libvirt collector
@@ -36,6 +36,8 @@ func main() {
 	signalHandler := NewSignalHandler(collector)
 	signalHandler.Start()
 
+	log.Printf("UOS Libvirt Exporter is ready to serve requests on %s%s", config.ListenAddr, config.MetricsPath)
+	
 	// Start HTTP server
 	if err := server.Start(); err != nil {
 		log.Fatalf("Server failed: %v", err)
