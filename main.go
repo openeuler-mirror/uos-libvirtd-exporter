@@ -13,8 +13,8 @@ import (
 )
 
 var (
-	libvirtURI = flag.String("libvirt.uri", "qemu:///system", "Libvirt connection URI")
-	listenAddr = flag.String("web.listen-address", ":9177", "Address to listen on for web interface and telemetry")
+	libvirtURI  = flag.String("libvirt.uri", "qemu:///system", "Libvirt connection URI")
+	listenAddr  = flag.String("web.listen-address", ":9177", "Address to listen on for web interface and telemetry")
 	metricsPath = flag.String("web.telemetry-path", "/metrics", "Path under which to expose metrics")
 )
 

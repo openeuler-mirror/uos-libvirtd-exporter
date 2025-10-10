@@ -5,15 +5,15 @@ import (
 	"sync"
 	"time"
 
-	"libvirt.org/go/libvirt"
 	"github.com/prometheus/client_golang/prometheus"
+	"libvirt.org/go/libvirt"
 )
 
 // LibvirtCollector implements the prometheus.Collector interface
 type LibvirtCollector struct {
-	uri     string
-	conn    *libvirt.Connect
-	mutex   sync.RWMutex
+	uri   string
+	conn  *libvirt.Connect
+	mutex sync.RWMutex
 
 	// VM status metrics
 	vmStatus *prometheus.Desc
