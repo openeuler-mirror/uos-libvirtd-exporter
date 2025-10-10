@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
@@ -24,8 +25,12 @@ func NewServer(config *Config, collector *LibvirtCollector) *Server {
 
 // SetupHandlers sets up the HTTP handlers
 func (s *Server) SetupHandlers() {
-	// Metrics endpoint
-	http.Handle(s.config.MetricsPath, promhttp.Handler())
+	// Create a custom registry and register only our collector
+	registry := prometheus.NewRegistry()
+	registry.MustRegister(s.collector)
+	
+	// Metrics endpoint using custom registry
+	http.Handle(s.config.MetricsPath, promhttp.HandlerFor(registry, promhttp.HandlerOpts{}))
 
 	// Root endpoint
 	http.HandleFunc("/", s.rootHandler)
