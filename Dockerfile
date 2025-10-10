@@ -1,0 +1,46 @@
+# Build stage
+FROM golang:1.21-alpine AS builder
+
+# Install build dependencies
+RUN apk add --no-cache git make gcc musl-dev libvirt-dev
+
+# Set working directory
+WORKDIR /build
+
+# Copy go mod files
+COPY go.mod go.sum ./
+RUN go mod download
+
+# Copy source code
+COPY . .
+
+# Build the binary
+RUN CGO_ENABLED=1 GOOS=linux go build -ldflags="-s -w" -o uos-libvirtd-exporter
+
+# Runtime stage
+FROM alpine:latest
+
+# Install runtime dependencies
+RUN apk add --no-cache libvirt-client
+
+# Create non-root user
+RUN adduser -D -g '' exporter
+
+# Copy binary from builder
+COPY --from=builder /build/uos-libvirtd-exporter /usr/local/bin/uos-libvirtd-exporter
+
+# Change ownership
+RUN chown exporter:exporter /usr/local/bin/uos-libvirtd-exporter
+
+# Switch to non-root user
+USER exporter
+
+# Expose metrics port
+EXPOSE 9177
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+  CMD wget --no-verbose --tries=1 --spider http://localhost:9177/ || exit 1
+
+# Run the exporter
+ENTRYPOINT ["/usr/local/bin/uos-libvirtd-exporter"]
