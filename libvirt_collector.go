@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"sync"
 	"time"
@@ -43,10 +44,18 @@ type LibvirtCollector struct {
 
 // NewLibvirtCollector creates a new LibvirtCollector
 func NewLibvirtCollector(uri string) (*LibvirtCollector, error) {
+	log.Printf("Connecting to libvirt at '%s'", uri)
 	conn, err := libvirt.NewConnect(uri)
 	if err != nil {
 		return nil, err
 	}
+	
+	alive, err := conn.IsAlive()
+	if err != nil || !alive {
+		return nil, fmt.Errorf("connection is not alive")
+	}
+	
+	log.Println("Successfully connected to libvirt")
 
 	return &LibvirtCollector{
 		uri:  uri,
@@ -170,21 +179,22 @@ func (c *LibvirtCollector) Collect(ch chan<- prometheus.Metric) {
 	// Check connection health
 	alive, err := c.conn.IsAlive()
 	if err != nil || !alive {
-		log.Printf("Connection to libvirt lost, reconnecting...")
+		log.Printf("Warning: Connection to libvirt lost, reconnecting...")
 		c.conn.Close()
 
 		conn, err := libvirt.NewConnect(c.uri)
 		if err != nil {
-			log.Printf("Failed to reconnect to libvirt: %v", err)
+			log.Printf("Error: Failed to reconnect to libvirt: %v", err)
 			return
 		}
 		c.conn = conn
+		log.Println("Successfully reconnected to libvirt")
 	}
 
 	// Get all domains
 	domains, err := c.conn.ListAllDomains(libvirt.CONNECT_LIST_DOMAINS_ACTIVE | libvirt.CONNECT_LIST_DOMAINS_INACTIVE)
 	if err != nil {
-		log.Printf("Failed to list domains: %v", err)
+		log.Printf("Error: Failed to list domains: %v", err)
 		return
 	}
 	defer func() {
@@ -273,6 +283,8 @@ func (c *LibvirtCollector) collectRunningDomainMetrics(ch chan<- prometheus.Metr
 // Close closes the libvirt connection
 func (c *LibvirtCollector) Close() {
 	if c.conn != nil {
+		log.Println("Closing libvirt connection...")
 		c.conn.Close()
+		log.Println("Libvirt connection closed")
 	}
 }
