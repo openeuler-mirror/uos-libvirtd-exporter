@@ -1,0 +1,34 @@
+[Unit]
+Description=UOS Libvirt Exporter
+Documentation=https://github.com/openeuler/uos-libvirtd-exporter
+After=network.target libvirtd.service
+Wants=libvirtd.service
+
+[Service]
+Type=simple
+User=prometheus
+Group=prometheus
+ExecStart=/usr/local/bin/uos-libvirtd-exporter \
+    -libvirt.uri=qemu:///system \
+    -web.listen-address=:9177 \
+    -web.telemetry-path=/metrics
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=uos-libvirtd-exporter
+
+# Security settings
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/libvirt
+
+# Resource limits
+LimitNOFILE=65536
+MemoryMax=256M
+CPUQuota=50%
+
+[Install]
+WantedBy=multi-user.target

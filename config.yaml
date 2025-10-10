@@ -1,0 +1,66 @@
+# UOS Libvirt Exporter Configuration
+# This is an example configuration file showing all available options
+
+# Libvirt connection settings
+libvirt:
+  # Libvirt connection URI
+  # Common URIs:
+  # - qemu:///system (local system libvirt)
+  # - qemu+tcp://host/system (remote TCP connection)
+  # - qemu+ssh://user@host/system (remote SSH connection)
+  uri: "qemu:///system"
+
+  # Connection timeout in seconds
+  timeout: 30
+
+  # Reconnection interval in seconds when connection is lost
+  reconnect_interval: 10
+
+# HTTP server settings
+web:
+  # Address to listen on for web interface and telemetry
+  listen_address: ":9177"
+
+  # Path under which to expose metrics
+  telemetry_path: "/metrics"
+
+  # Enable pprof debugging endpoint
+  enable_pprof: false
+
+  # pprof listening address (only used if enable_pprof is true)
+  pprof_address: ":6060"
+
+# Logging settings
+logging:
+  # Log level: debug, info, warn, error
+  level: "info"
+
+  # Log format: text, json
+  format: "text"
+
+# Metrics collection settings
+collection:
+  # Collection interval in seconds
+  interval: 15
+
+  # Timeout for individual metric collection operations
+  timeout: 10
+
+  # Maximum number of concurrent domain metric collections
+  max_concurrent: 10
+
+# Metric filtering (optional)
+metrics:
+  # Enable/disable specific metric groups
+  enabled:
+    - "vm_status"
+    - "vm_cpu"
+    - "vm_memory"
+    - "vm_disk"
+    - "vm_network"
+    - "vm_uptime"
+
+  # Custom labels to add to all metrics
+  extra_labels:
+    environment: "production"
+    datacenter: "dc1"
