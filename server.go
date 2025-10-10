@@ -28,7 +28,7 @@ func (s *Server) SetupHandlers() {
 	// Create a custom registry and register only our collector
 	registry := prometheus.NewRegistry()
 	registry.MustRegister(s.collector)
-	
+
 	// Metrics endpoint using custom registry
 	http.Handle(s.config.MetricsPath, promhttp.HandlerFor(registry, promhttp.HandlerOpts{}))
 

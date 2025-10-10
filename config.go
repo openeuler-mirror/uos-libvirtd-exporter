@@ -8,9 +8,9 @@ import (
 
 // Config holds the application configuration
 type Config struct {
-	LibvirtURI   string
-	ListenAddr   string
-	MetricsPath  string
+	LibvirtURI  string
+	ListenAddr  string
+	MetricsPath string
 }
 
 // ParseConfig parses command line flags and returns the configuration
