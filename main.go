@@ -1,69 +1,43 @@
 package main
 
 import (
-	"flag"
 	"log"
-	"net/http"
-	"os"
-	"os/signal"
-	"syscall"
 
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
-var (
-	libvirtURI  = flag.String("libvirt.uri", "qemu:///system", "Libvirt connection URI")
-	listenAddr  = flag.String("web.listen-address", ":9177", "Address to listen on for web interface and telemetry")
-	metricsPath = flag.String("web.telemetry-path", "/metrics", "Path under which to expose metrics")
-)
+var version = "dev"
 
 func main() {
-	flag.Parse()
+	// Parse configuration
+	config, err := ParseConfig()
+	if err != nil {
+		log.Fatalf("Failed to parse configuration: %v", err)
+	}
 
 	log.Printf("Starting uos-libvirtd-exporter %s", version)
-	log.Printf("Libvirt URI: %s", *libvirtURI)
-	log.Printf("Listening on: %s", *listenAddr)
-	log.Printf("Metrics path: %s", *metricsPath)
+	config.Log()
 
 	// Create libvirt collector
-	collector, err := NewLibvirtCollector(*libvirtURI)
+	collector, err := NewLibvirtCollector(config.LibvirtURI)
 	if err != nil {
 		log.Fatalf("Failed to create libvirt collector: %v", err)
 	}
+	defer collector.Close()
 
 	// Register collector
 	prometheus.MustRegister(collector)
 
-	// Setup HTTP handlers
-	http.Handle(*metricsPath, promhttp.Handler())
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte(`<html>
-			<head><title>UOS Libvirt Exporter</title></head>
-			<body>
-			<h1>UOS Libvirt Exporter</h1>
-			<p><a href='` + *metricsPath + `'>Metrics</a></p>
-			<p>Build version: ` + version + `</p>
-			</body>
-			</html>`))
-	})
+	// Create and setup HTTP server
+	server := NewServer(config, collector)
+	server.SetupHandlers()
 
 	// Setup signal handling
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
-
-	go func() {
-		<-sigChan
-		log.Println("Shutting down...")
-		collector.Close()
-		os.Exit(0)
-	}()
+	signalHandler := NewSignalHandler(collector)
+	signalHandler.Start()
 
 	// Start HTTP server
-	log.Printf("Starting HTTP server on %s", *listenAddr)
-	if err := http.ListenAndServe(*listenAddr, nil); err != nil {
-		log.Fatalf("Failed to start HTTP server: %v", err)
+	if err := server.Start(); err != nil {
+		log.Fatalf("Server failed: %v", err)
 	}
 }
-
-var version = "dev"
