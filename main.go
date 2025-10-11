@@ -35,22 +35,29 @@ func main() {
 	log.Printf("Starting UOS Libvirt Exporter %s", version)
 	cfg.Log()
 
-	// Create libvirt collector
-	collector, err := collector.NewLibvirtCollector(cfg.LibvirtURI)
-	if err != nil {
-		log.Fatalf("Failed to create libvirt collector: %v", err)
+	// Create scrapers
+	scrapers := []collector.Scraper{
+		collector.NewDomainInfoScraper(),
+		collector.NewDiskScraper(),
+		collector.NewNetworkScraper(),
 	}
-	defer collector.Close()
 
-	// Register collector
-	prometheus.MustRegister(collector)
+	// Create libvirt exporter
+	exporter, err := collector.NewExporter(cfg.LibvirtURI, scrapers)
+	if err != nil {
+		log.Fatalf("Failed to create libvirt exporter: %v", err)
+	}
+	defer exporter.Close()
+
+	// Register exporter
+	prometheus.MustRegister(exporter)
 
 	// Create and setup HTTP server
-	server := server.NewServer(&configWrapper{cfg}, collector)
+	server := server.NewServer(&configWrapper{cfg}, exporter)
 	server.SetupHandlers()
 
 	// Setup signal handling
-	signalHandler := signal.NewHandler(collector)
+	signalHandler := signal.NewHandler(exporter)
 	signalHandler.Start()
 
 	log.Printf("UOS Libvirt Exporter is ready to serve requests on %s%s", cfg.ListenAddr, cfg.MetricsPath)

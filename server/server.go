@@ -14,8 +14,8 @@ var version = "dev"
 
 // Server represents the HTTP server
 type Server struct {
-	config    interface{ GetListenAddr() string; GetMetricsPath() string }
-	collector *collector.LibvirtCollector
+	config   interface{ GetListenAddr() string; GetMetricsPath() string }
+	exporter *collector.Exporter
 }
 
 // Config interface for server configuration
@@ -25,18 +25,18 @@ type Config interface {
 }
 
 // NewServer creates a new HTTP server
-func NewServer(config Config, collector *collector.LibvirtCollector) *Server {
+func NewServer(config Config, exporter *collector.Exporter) *Server {
 	return &Server{
-		config:    config,
-		collector: collector,
+		config:   config,
+		exporter: exporter,
 	}
 }
 
 // SetupHandlers sets up the HTTP handlers
 func (s *Server) SetupHandlers() {
-	// Create a custom registry and register only our collector
+	// Create a custom registry and register only our exporter
 	registry := prometheus.NewRegistry()
-	registry.MustRegister(s.collector)
+	registry.MustRegister(s.exporter)
 
 	// Metrics endpoint using custom registry
 	http.Handle(s.config.GetMetricsPath(), promhttp.HandlerFor(registry, promhttp.HandlerOpts{}))
