@@ -9,11 +9,11 @@ import (
 
 // DomainInfoCollector collects basic domain information
 type DomainInfoCollector struct {
-	vmStatus        *prometheus.Desc
-	vmCPUTime       *prometheus.Desc
-	vmMemoryCurrent *prometheus.Desc
-	vmMemoryMax     *prometheus.Desc
-	vmUptime        *prometheus.Desc
+	vmStatus         *prometheus.Desc
+	vmCPUTime        *prometheus.Desc
+	vmMemoryCurrent  *prometheus.Desc
+	vmMemoryMax      *prometheus.Desc
+	vmUptime         *prometheus.Desc
 	metricsCollector MetricsCollector
 }
 

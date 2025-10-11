@@ -6,21 +6,21 @@ import (
 
 // DomainInfoMetrics represents raw domain information metrics
 type DomainInfoMetrics struct {
-	Name      string
-	UUID      string
-	Status    float64
-	CPUTime   float64
+	Name          string
+	UUID          string
+	Status        float64
+	CPUTime       float64
 	MemoryCurrent float64
-	MemoryMax float64
-	Uptime    float64
-	HasUptime bool
+	MemoryMax     float64
+	Uptime        float64
+	HasUptime     bool
 }
 
 // DiskMetrics represents raw disk I/O statistics
 type DiskMetrics struct {
-	Name      string
-	UUID      string
-	Device    string
+	Name       string
+	UUID       string
+	Device     string
 	ReadBytes  uint64
 	WriteBytes uint64
 	ReadOps    uint64
@@ -29,11 +29,11 @@ type DiskMetrics struct {
 
 // NetworkMetrics represents raw network I/O statistics
 type NetworkMetrics struct {
-	Name     string
-	UUID     string
+	Name      string
+	UUID      string
 	Interface string
-	RxBytes  uint64
-	TxBytes  uint64
+	RxBytes   uint64
+	TxBytes   uint64
 	RxPackets uint64
 	TxPackets uint64
 }
