@@ -16,6 +16,189 @@ type Collector interface {
 	Collect(ch chan<- prometheus.Metric, conn *libvirt.Connect, domain *libvirt.Domain)
 }
 
+// DomainInfoMetrics represents raw domain information metrics
+type DomainInfoMetrics struct {
+	Name      string
+	UUID      string
+	Status    float64
+	CPUTime   float64
+	MemoryCurrent float64
+	MemoryMax float64
+	Uptime    float64
+	HasUptime bool
+}
+
+// DiskMetrics represents raw disk I/O statistics
+type DiskMetrics struct {
+	Name      string
+	UUID      string
+	Device    string
+	ReadBytes  uint64
+	WriteBytes uint64
+	ReadOps    uint64
+	WriteOps   uint64
+}
+
+// NetworkMetrics represents raw network I/O statistics
+type NetworkMetrics struct {
+	Name     string
+	UUID     string
+	Interface string
+	RxBytes  uint64
+	TxBytes  uint64
+	RxPackets uint64
+	TxPackets uint64
+}
+
+// MetricsCollector defines interface for collecting raw metrics from libvirt
+type MetricsCollector interface {
+	CollectDomainInfo(conn *libvirt.Connect, domain *libvirt.Domain) (*DomainInfoMetrics, error)
+	CollectDiskStats(conn *libvirt.Connect, domain *libvirt.Domain) ([]DiskMetrics, error)
+	CollectNetworkStats(conn *libvirt.Connect, domain *libvirt.Domain) ([]NetworkMetrics, error)
+}
+
+// LibvirtMetricsCollector implements MetricsCollector to fetch raw metrics from libvirt
+type LibvirtMetricsCollector struct{}
+
+// NewLibvirtMetricsCollector creates a new LibvirtMetricsCollector
+func NewLibvirtMetricsCollector() *LibvirtMetricsCollector {
+	return &LibvirtMetricsCollector{}
+}
+
+// CollectDomainInfo collects basic domain information from libvirt
+func (mc *LibvirtMetricsCollector) CollectDomainInfo(conn *libvirt.Connect, domain *libvirt.Domain) (*DomainInfoMetrics, error) {
+	domainInfo, err := domain.GetInfo()
+	if err != nil {
+		return nil, err
+	}
+
+	domainName, err := domain.GetName()
+	if err != nil {
+		return nil, err
+	}
+
+	domainUUID, err := domain.GetUUIDString()
+	if err != nil {
+		return nil, err
+	}
+
+	metrics := &DomainInfoMetrics{
+		Name:          domainName,
+		UUID:          domainUUID,
+		MemoryCurrent: float64(domainInfo.Memory) * 1024,
+		MemoryMax:     float64(domainInfo.MaxMem) * 1024,
+		CPUTime:       float64(domainInfo.CpuTime) / 1e9,
+	}
+
+	// VM status metric
+	if domainInfo.State == libvirt.DOMAIN_RUNNING {
+		metrics.Status = 1.0
+	} else {
+		metrics.Status = 0.0
+	}
+
+	// Only collect uptime for running domains
+	if domainInfo.State == libvirt.DOMAIN_RUNNING {
+		domainTime, _, err := domain.GetTime(0)
+		if err == nil {
+			metrics.Uptime = time.Since(time.Unix(int64(domainTime/1000), 0)).Seconds()
+			metrics.HasUptime = true
+		}
+	}
+
+	return metrics, nil
+}
+
+// CollectDiskStats collects disk I/O statistics from libvirt
+func (mc *LibvirtMetricsCollector) CollectDiskStats(conn *libvirt.Connect, domain *libvirt.Domain) ([]DiskMetrics, error) {
+	domainInfo, err := domain.GetInfo()
+	if err != nil {
+		return nil, err
+	}
+
+	// Only collect metrics for running domains
+	if domainInfo.State != libvirt.DOMAIN_RUNNING {
+		return []DiskMetrics{}, nil
+	}
+
+	domainName, err := domain.GetName()
+	if err != nil {
+		return nil, err
+	}
+
+	domainUUID, err := domain.GetUUIDString()
+	if err != nil {
+		return nil, err
+	}
+
+	var metrics []DiskMetrics
+
+	// Use the approach from the original code to collect disk stats for common block devices
+	blockDevices := []string{"vda", "vdb", "hda", "hdb", "sda", "sdb"}
+	for _, device := range blockDevices {
+		stats, err := domain.BlockStats(device)
+		if err == nil {
+			m := DiskMetrics{
+				Name:       domainName,
+				UUID:       domainUUID,
+				Device:     device,
+				ReadBytes:  uint64(stats.RdBytes),
+				WriteBytes: uint64(stats.WrBytes),
+				ReadOps:    uint64(stats.RdReq),
+				WriteOps:   uint64(stats.WrReq),
+			}
+			metrics = append(metrics, m)
+		}
+	}
+
+	return metrics, nil
+}
+
+// CollectNetworkStats collects network I/O statistics from libvirt
+func (mc *LibvirtMetricsCollector) CollectNetworkStats(conn *libvirt.Connect, domain *libvirt.Domain) ([]NetworkMetrics, error) {
+	domainInfo, err := domain.GetInfo()
+	if err != nil {
+		return nil, err
+	}
+
+	// Only collect metrics for running domains
+	if domainInfo.State != libvirt.DOMAIN_RUNNING {
+		return []NetworkMetrics{}, nil
+	}
+
+	domainName, err := domain.GetName()
+	if err != nil {
+		return nil, err
+	}
+
+	domainUUID, err := domain.GetUUIDString()
+	if err != nil {
+		return nil, err
+	}
+
+	var metrics []NetworkMetrics
+
+	// Use the approach from the original code to collect network stats for common interfaces
+	netInterfaces := []string{"vnet0", "vnet1", "eth0", "eth1"}
+	for _, iface := range netInterfaces {
+		stats, err := domain.InterfaceStats(iface)
+		if err == nil {
+			m := NetworkMetrics{
+				Name:      domainName,
+				UUID:      domainUUID,
+				Interface: iface,
+				RxBytes:   uint64(stats.RxBytes),
+				TxBytes:   uint64(stats.TxBytes),
+				RxPackets: uint64(stats.RxPackets),
+				TxPackets: uint64(stats.TxPackets),
+			}
+			metrics = append(metrics, m)
+		}
+	}
+
+	return metrics, nil
+}
+
 // DomainInfoCollector collects basic domain information
 type DomainInfoCollector struct {
 	vmStatus        *prometheus.Desc
@@ -23,6 +206,7 @@ type DomainInfoCollector struct {
 	vmMemoryCurrent *prometheus.Desc
 	vmMemoryMax     *prometheus.Desc
 	vmUptime        *prometheus.Desc
+	metricsCollector MetricsCollector
 }
 
 // NewDomainInfoCollector creates a new DomainInfoCollector
@@ -58,6 +242,7 @@ func NewDomainInfoCollector() *DomainInfoCollector {
 			[]string{"domain", "uuid"},
 			nil,
 		),
+		metricsCollector: NewLibvirtMetricsCollector(),
 	}
 }
 
@@ -72,46 +257,25 @@ func (c *DomainInfoCollector) Describe(ch chan<- *prometheus.Desc) {
 
 // Collect implements the Collector interface for DomainInfoCollector
 func (c *DomainInfoCollector) Collect(ch chan<- prometheus.Metric, conn *libvirt.Connect, domain *libvirt.Domain) {
-	domainInfo, err := domain.GetInfo()
+	metrics, err := c.metricsCollector.CollectDomainInfo(conn, domain)
 	if err != nil {
-		log.Printf("Failed to get domain info: %v", err)
-		return
-	}
-
-	domainName, err := domain.GetName()
-	if err != nil {
-		log.Printf("Failed to get domain name: %v", err)
-		return
-	}
-
-	domainUUID, err := domain.GetUUIDString()
-	if err != nil {
-		log.Printf("Failed to get domain UUID: %v", err)
+		log.Printf("Failed to collect domain info metrics: %v", err)
 		return
 	}
 
 	// VM status metric
-	status := 0.0
-	if domainInfo.State == libvirt.DOMAIN_RUNNING {
-		status = 1.0
-	}
-	ch <- prometheus.MustNewConstMetric(c.vmStatus, prometheus.GaugeValue, status, domainName, domainUUID)
+	ch <- prometheus.MustNewConstMetric(c.vmStatus, prometheus.GaugeValue, metrics.Status, metrics.Name, metrics.UUID)
 
-	// CPU time metric (convert from nanoseconds to seconds)
-	ch <- prometheus.MustNewConstMetric(c.vmCPUTime, prometheus.CounterValue, float64(domainInfo.CpuTime)/1e9, domainName, domainUUID)
+	// CPU time metric
+	ch <- prometheus.MustNewConstMetric(c.vmCPUTime, prometheus.CounterValue, metrics.CPUTime, metrics.Name, metrics.UUID)
 
 	// Memory metrics
-	ch <- prometheus.MustNewConstMetric(c.vmMemoryCurrent, prometheus.GaugeValue, float64(domainInfo.Memory)*1024, domainName, domainUUID)
-	ch <- prometheus.MustNewConstMetric(c.vmMemoryMax, prometheus.GaugeValue, float64(domainInfo.MaxMem)*1024, domainName, domainUUID)
+	ch <- prometheus.MustNewConstMetric(c.vmMemoryCurrent, prometheus.GaugeValue, metrics.MemoryCurrent, metrics.Name, metrics.UUID)
+	ch <- prometheus.MustNewConstMetric(c.vmMemoryMax, prometheus.GaugeValue, metrics.MemoryMax, metrics.Name, metrics.UUID)
 
 	// Only collect uptime for running domains
-	if domainInfo.State == libvirt.DOMAIN_RUNNING {
-		// Collect uptime (simplified - using current time minus start time)
-		domainTime, _, err := domain.GetTime(0)
-		if err == nil {
-			uptime := time.Since(time.Unix(int64(domainTime/1000), 0)).Seconds()
-			ch <- prometheus.MustNewConstMetric(c.vmUptime, prometheus.GaugeValue, uptime, domainName, domainUUID)
-		}
+	if metrics.HasUptime {
+		ch <- prometheus.MustNewConstMetric(c.vmUptime, prometheus.GaugeValue, metrics.Uptime, metrics.Name, metrics.UUID)
 	}
 }
 
@@ -121,6 +285,7 @@ type DiskCollector struct {
 	vmDiskWriteBytes *prometheus.Desc
 	vmDiskReadOps    *prometheus.Desc
 	vmDiskWriteOps   *prometheus.Desc
+	metricsCollector MetricsCollector
 }
 
 // NewDiskCollector creates a new DiskCollector
@@ -150,6 +315,7 @@ func NewDiskCollector() *DiskCollector {
 			[]string{"domain", "uuid", "device"},
 			nil,
 		),
+		metricsCollector: NewLibvirtMetricsCollector(),
 	}
 }
 
@@ -163,40 +329,17 @@ func (c *DiskCollector) Describe(ch chan<- *prometheus.Desc) {
 
 // Collect implements the Collector interface for DiskCollector
 func (c *DiskCollector) Collect(ch chan<- prometheus.Metric, conn *libvirt.Connect, domain *libvirt.Domain) {
-	domainInfo, err := domain.GetInfo()
+	metricsList, err := c.metricsCollector.CollectDiskStats(conn, domain)
 	if err != nil {
-		log.Printf("Failed to get domain info: %v", err)
+		log.Printf("Failed to collect disk metrics: %v", err)
 		return
 	}
 
-	// Only collect metrics for running domains
-	if domainInfo.State != libvirt.DOMAIN_RUNNING {
-		return
-	}
-
-	domainName, err := domain.GetName()
-	if err != nil {
-		log.Printf("Failed to get domain name: %v", err)
-		return
-	}
-
-	domainUUID, err := domain.GetUUIDString()
-	if err != nil {
-		log.Printf("Failed to get domain UUID: %v", err)
-		return
-	}
-
-	// Use the approach from the original code to collect disk stats for common block devices
-	// But make it extendable by defining the list of devices in a more configurable way
-	blockDevices := []string{"vda", "vdb", "hda", "hdb", "sda", "sdb"}
-	for _, device := range blockDevices {
-		stats, err := domain.BlockStats(device)
-		if err == nil {
-			ch <- prometheus.MustNewConstMetric(c.vmDiskReadBytes, prometheus.CounterValue, float64(stats.RdBytes), domainName, domainUUID, device)
-			ch <- prometheus.MustNewConstMetric(c.vmDiskWriteBytes, prometheus.CounterValue, float64(stats.WrBytes), domainName, domainUUID, device)
-			ch <- prometheus.MustNewConstMetric(c.vmDiskReadOps, prometheus.CounterValue, float64(stats.RdReq), domainName, domainUUID, device)
-			ch <- prometheus.MustNewConstMetric(c.vmDiskWriteOps, prometheus.CounterValue, float64(stats.WrReq), domainName, domainUUID, device)
-		}
+	for _, metrics := range metricsList {
+		ch <- prometheus.MustNewConstMetric(c.vmDiskReadBytes, prometheus.CounterValue, float64(metrics.ReadBytes), metrics.Name, metrics.UUID, metrics.Device)
+		ch <- prometheus.MustNewConstMetric(c.vmDiskWriteBytes, prometheus.CounterValue, float64(metrics.WriteBytes), metrics.Name, metrics.UUID, metrics.Device)
+		ch <- prometheus.MustNewConstMetric(c.vmDiskReadOps, prometheus.CounterValue, float64(metrics.ReadOps), metrics.Name, metrics.UUID, metrics.Device)
+		ch <- prometheus.MustNewConstMetric(c.vmDiskWriteOps, prometheus.CounterValue, float64(metrics.WriteOps), metrics.Name, metrics.UUID, metrics.Device)
 	}
 }
 
@@ -206,6 +349,7 @@ type NetworkCollector struct {
 	vmNetworkTxBytes *prometheus.Desc
 	vmNetworkRxPkts  *prometheus.Desc
 	vmNetworkTxPkts  *prometheus.Desc
+	metricsCollector MetricsCollector
 }
 
 // NewNetworkCollector creates a new NetworkCollector
@@ -235,6 +379,7 @@ func NewNetworkCollector() *NetworkCollector {
 			[]string{"domain", "uuid", "interface"},
 			nil,
 		),
+		metricsCollector: NewLibvirtMetricsCollector(),
 	}
 }
 
@@ -248,40 +393,17 @@ func (c *NetworkCollector) Describe(ch chan<- *prometheus.Desc) {
 
 // Collect implements the Collector interface for NetworkCollector
 func (c *NetworkCollector) Collect(ch chan<- prometheus.Metric, conn *libvirt.Connect, domain *libvirt.Domain) {
-	domainInfo, err := domain.GetInfo()
+	metricsList, err := c.metricsCollector.CollectNetworkStats(conn, domain)
 	if err != nil {
-		log.Printf("Failed to get domain info: %v", err)
+		log.Printf("Failed to collect network metrics: %v", err)
 		return
 	}
 
-	// Only collect metrics for running domains
-	if domainInfo.State != libvirt.DOMAIN_RUNNING {
-		return
-	}
-
-	domainName, err := domain.GetName()
-	if err != nil {
-		log.Printf("Failed to get domain name: %v", err)
-		return
-	}
-
-	domainUUID, err := domain.GetUUIDString()
-	if err != nil {
-		log.Printf("Failed to get domain UUID: %v", err)
-		return
-	}
-
-	// Use the approach from the original code to collect network stats for common interfaces
-	// But make it extendable by defining the list of interfaces in a more configurable way
-	netInterfaces := []string{"vnet0", "vnet1", "eth0", "eth1"}
-	for _, iface := range netInterfaces {
-		stats, err := domain.InterfaceStats(iface)
-		if err == nil {
-			ch <- prometheus.MustNewConstMetric(c.vmNetworkRxBytes, prometheus.CounterValue, float64(stats.RxBytes), domainName, domainUUID, iface)
-			ch <- prometheus.MustNewConstMetric(c.vmNetworkTxBytes, prometheus.CounterValue, float64(stats.TxBytes), domainName, domainUUID, iface)
-			ch <- prometheus.MustNewConstMetric(c.vmNetworkRxPkts, prometheus.CounterValue, float64(stats.RxPackets), domainName, domainUUID, iface)
-			ch <- prometheus.MustNewConstMetric(c.vmNetworkTxPkts, prometheus.CounterValue, float64(stats.TxPackets), domainName, domainUUID, iface)
-		}
+	for _, metrics := range metricsList {
+		ch <- prometheus.MustNewConstMetric(c.vmNetworkRxBytes, prometheus.CounterValue, float64(metrics.RxBytes), metrics.Name, metrics.UUID, metrics.Interface)
+		ch <- prometheus.MustNewConstMetric(c.vmNetworkTxBytes, prometheus.CounterValue, float64(metrics.TxBytes), metrics.Name, metrics.UUID, metrics.Interface)
+		ch <- prometheus.MustNewConstMetric(c.vmNetworkRxPkts, prometheus.CounterValue, float64(metrics.RxPackets), metrics.Name, metrics.UUID, metrics.Interface)
+		ch <- prometheus.MustNewConstMetric(c.vmNetworkTxPkts, prometheus.CounterValue, float64(metrics.TxPackets), metrics.Name, metrics.UUID, metrics.Interface)
 	}
 }
 
