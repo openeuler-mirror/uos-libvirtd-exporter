@@ -4,22 +4,39 @@ import (
 	"log"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"gitee.com/openeuler/uos-libvirtd-exporter/collector"
+	"gitee.com/openeuler/uos-libvirtd-exporter/config"
+	"gitee.com/openeuler/uos-libvirtd-exporter/server"
+	"gitee.com/openeuler/uos-libvirtd-exporter/signal"
 )
 
 var version = "dev"
 
+// configWrapper wraps the config struct to implement the server.Config interface
+type configWrapper struct {
+	*config.Config
+}
+
+func (c *configWrapper) GetListenAddr() string {
+	return c.Config.ListenAddr
+}
+
+func (c *configWrapper) GetMetricsPath() string {
+	return c.Config.MetricsPath
+}
+
 func main() {
 	// Parse configuration
-	config, err := ParseConfig()
+	cfg, err := config.ParseConfig()
 	if err != nil {
 		log.Fatalf("Failed to parse configuration: %v", err)
 	}
 
 	log.Printf("Starting UOS Libvirt Exporter %s", version)
-	config.Log()
+	cfg.Log()
 
 	// Create libvirt collector
-	collector, err := NewLibvirtCollector(config.LibvirtURI)
+	collector, err := collector.NewLibvirtCollector(cfg.LibvirtURI)
 	if err != nil {
 		log.Fatalf("Failed to create libvirt collector: %v", err)
 	}
@@ -29,14 +46,14 @@ func main() {
 	prometheus.MustRegister(collector)
 
 	// Create and setup HTTP server
-	server := NewServer(config, collector)
+	server := server.NewServer(&configWrapper{cfg}, collector)
 	server.SetupHandlers()
 
 	// Setup signal handling
-	signalHandler := NewSignalHandler(collector)
+	signalHandler := signal.NewHandler(collector)
 	signalHandler.Start()
 
-	log.Printf("UOS Libvirt Exporter is ready to serve requests on %s%s", config.ListenAddr, config.MetricsPath)
+	log.Printf("UOS Libvirt Exporter is ready to serve requests on %s%s", cfg.ListenAddr, cfg.MetricsPath)
 
 	// Start HTTP server
 	if err := server.Start(); err != nil {
