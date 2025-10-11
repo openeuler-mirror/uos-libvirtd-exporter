@@ -12,7 +12,11 @@ import (
 // Collector defines the interface for collecting metrics
 type Collector interface {
 	Describe(ch chan<- *prometheus.Desc)
-	Collect(ch chan<- prometheus.Metric, conn *libvirt.Connect, domain *libvirt.Domain)
+	Collect(
+		ch chan<- prometheus.Metric,
+		conn *libvirt.Connect,
+		domain *libvirt.Domain,
+	)
 }
 
 // LibvirtCollector implements the prometheus.Collector interface
@@ -46,7 +50,10 @@ func NewLibvirtCollector(uri string) (*LibvirtCollector, error) {
 	}
 
 	// Initialize individual collectors
-	collector.collectors = append(collector.collectors, NewDomainInfoCollector())
+	collector.collectors = append(
+		collector.collectors,
+		NewDomainInfoCollector(),
+	)
 	collector.collectors = append(collector.collectors, NewDiskCollector())
 	collector.collectors = append(collector.collectors, NewNetworkCollector())
 
@@ -81,7 +88,9 @@ func (c *LibvirtCollector) Collect(ch chan<- prometheus.Metric) {
 	}
 
 	// Get all domains
-	domains, err := c.conn.ListAllDomains(libvirt.CONNECT_LIST_DOMAINS_ACTIVE | libvirt.CONNECT_LIST_DOMAINS_INACTIVE)
+	domains, err := c.conn.ListAllDomains(
+		libvirt.CONNECT_LIST_DOMAINS_ACTIVE | libvirt.CONNECT_LIST_DOMAINS_INACTIVE,
+	)
 	if err != nil {
 		log.Printf("Error: Failed to list domains: %v", err)
 		return

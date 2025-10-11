@@ -20,10 +20,30 @@ func ParseConfig() (*Config, error) {
 	var config Config
 
 	// String parameters
-	flag.StringVar(&config.LibvirtURI, "libvirt.uri", "", "Libvirt connection URI")
-	flag.StringVar(&config.ListenAddr, "web.listen-address", "", "Address to listen on for web interface and telemetry")
-	flag.StringVar(&config.MetricsPath, "web.telemetry-path", "", "Path under which to expose metrics")
-	flag.StringVar(&config.ConfigFile, "config.file", "", "Path to configuration file")
+	flag.StringVar(
+		&config.LibvirtURI,
+		"libvirt.uri",
+		"",
+		"Libvirt connection URI",
+	)
+	flag.StringVar(
+		&config.ListenAddr,
+		"web.listen-address",
+		"",
+		"Address to listen on for web interface and telemetry",
+	)
+	flag.StringVar(
+		&config.MetricsPath,
+		"web.telemetry-path",
+		"",
+		"Path under which to expose metrics",
+	)
+	flag.StringVar(
+		&config.ConfigFile,
+		"config.file",
+		"",
+		"Path to configuration file",
+	)
 
 	flag.Parse()
 
@@ -92,7 +112,9 @@ func (c *Config) Validate() error {
 
 // Log logs the configuration values
 func (c *Config) Log() {
-	log.Println("--------------------------------------------------------------------")
+	log.Println(
+		"--------------------------------------------------------------------",
+	)
 	log.Println("UOS Libvirt Exporter Configuration:")
 
 	if c.ConfigFile != "" {
@@ -106,5 +128,7 @@ func (c *Config) Log() {
 		log.Printf("  Metrics Path     : %s", c.MetricsPath)
 	}
 
-	log.Println("--------------------------------------------------------------------")
+	log.Println(
+		"--------------------------------------------------------------------",
+	)
 }

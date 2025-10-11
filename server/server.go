@@ -42,7 +42,10 @@ func (s *Server) SetupHandlers() {
 	registry.MustRegister(s.collector)
 
 	// Metrics endpoint using custom registry
-	http.Handle(s.config.GetMetricsPath(), promhttp.HandlerFor(registry, promhttp.HandlerOpts{}))
+	http.Handle(
+		s.config.GetMetricsPath(),
+		promhttp.HandlerFor(registry, promhttp.HandlerOpts{}),
+	)
 
 	// Root endpoint
 	http.HandleFunc("/", s.rootHandler)
