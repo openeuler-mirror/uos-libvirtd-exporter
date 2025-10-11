@@ -3,11 +3,11 @@ package main
 import (
 	"log"
 
-	"github.com/prometheus/client_golang/prometheus"
 	"gitee.com/openeuler/uos-libvirtd-exporter/collector"
 	"gitee.com/openeuler/uos-libvirtd-exporter/config"
 	"gitee.com/openeuler/uos-libvirtd-exporter/server"
 	"gitee.com/openeuler/uos-libvirtd-exporter/signal"
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 var version = "dev"

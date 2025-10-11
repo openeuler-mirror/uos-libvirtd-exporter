@@ -5,16 +5,19 @@ import (
 	"log"
 	"net/http"
 
+	"gitee.com/openeuler/uos-libvirtd-exporter/collector"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"gitee.com/openeuler/uos-libvirtd-exporter/collector"
 )
 
 var version = "dev"
 
 // Server represents the HTTP server
 type Server struct {
-	config    interface{ GetListenAddr() string; GetMetricsPath() string }
+	config interface {
+		GetListenAddr() string
+		GetMetricsPath() string
+	}
 	collector *collector.LibvirtCollector
 }
 
