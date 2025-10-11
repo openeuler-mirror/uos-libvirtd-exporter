@@ -1,7 +1,6 @@
 package collector
 
 import (
-	"context"
 	"fmt"
 	"log"
 	"sync"
@@ -11,175 +10,14 @@ import (
 	"libvirt.org/go/libvirt"
 )
 
-// Scraper is the interface for collecting metrics
-type Scraper interface {
-	Name() string
-	Help() string
+// Collector defines the interface for collecting metrics
+type Collector interface {
 	Describe(ch chan<- *prometheus.Desc)
-	Collect(ctx context.Context, conn *libvirt.Connect, ch chan<- prometheus.Metric) error
-	Version() float64
+	Collect(ch chan<- prometheus.Metric, conn *libvirt.Connect, domain *libvirt.Domain)
 }
 
-// Exporter collects Libvirt metrics. It implements prometheus.Collector.
-type Exporter struct {
-	uri              string
-	conn             *libvirt.Connect
-	scrapers         []Scraper
-	mutex            sync.RWMutex
-	logger           *log.Logger
-	scrapeTimeout    time.Duration
-	scrapeSuccess    *prometheus.Desc
-	scrapeDuration   *prometheus.Desc
-	upMetric         *prometheus.Desc
-}
-
-// ExporterOpt configures Exporter
-type ExporterOpt func(*Exporter)
-
-// WithScrapeTimeout configures scrape timeout
-func WithScrapeTimeout(timeout time.Duration) ExporterOpt {
-	return func(e *Exporter) {
-		e.scrapeTimeout = timeout
-	}
-}
-
-// WithLogger configures logger
-func WithLogger(logger *log.Logger) ExporterOpt {
-	return func(e *Exporter) {
-		e.logger = logger
-	}
-}
-
-// Verify if Exporter implements prometheus.Collector
-var _ prometheus.Collector = (*Exporter)(nil)
-
-// NewExporter creates a new Libvirt exporter
-func NewExporter(uri string, scrapers []Scraper, opts ...ExporterOpt) (*Exporter, error) {
-	log.Printf("Connecting to libvirt at '%s'", uri)
-	conn, err := libvirt.NewConnect(uri)
-	if err != nil {
-		return nil, err
-	}
-
-	alive, err := conn.IsAlive()
-	if err != nil || !alive {
-		return nil, fmt.Errorf("connection is not alive")
-	}
-
-	log.Println("Successfully connected to libvirt")
-
-	e := &Exporter{
-		uri:           uri,
-		conn:          conn,
-		scrapers:      scrapers,
-		logger:        log.Default(),
-		scrapeTimeout: 10 * time.Second,
-		upMetric: prometheus.NewDesc(
-			"libvirt_up",
-			"Whether scraping libvirt's metrics was successful.",
-			nil, nil,
-		),
-		scrapeSuccess: prometheus.NewDesc(
-			"libvirt_exporter_scraper_success",
-			"Whether a scraper succeeded.",
-			[]string{"scraper"}, nil,
-		),
-		scrapeDuration: prometheus.NewDesc(
-			"libvirt_exporter_scraper_duration_seconds",
-			"Duration of a scrape job.",
-			[]string{"scraper"}, nil,
-		),
-	}
-
-	for _, opt := range opts {
-		opt(e)
-	}
-
-	return e, nil
-}
-
-// Describe implements prometheus.Collector.
-func (e *Exporter) Describe(ch chan<- *prometheus.Desc) {
-	ch <- e.upMetric
-	ch <- e.scrapeSuccess
-	ch <- e.scrapeDuration
-	
-	// Describe all scrapers
-	for _, scraper := range e.scrapers {
-		scraper.Describe(ch)
-	}
-}
-
-// Collect implements prometheus.Collector.
-func (e *Exporter) Collect(ch chan<- prometheus.Metric) {
-	e.mutex.Lock()
-	defer e.mutex.Unlock()
-	
-	up := e.scrape(context.Background(), ch)
-	ch <- prometheus.MustNewConstMetric(e.upMetric, prometheus.GaugeValue, up)
-}
-
-// scrape collects metrics from all scrapers
-func (e *Exporter) scrape(ctx context.Context, ch chan<- prometheus.Metric) float64 {
-	// Check connection health
-	alive, err := e.conn.IsAlive()
-	if err != nil || !alive {
-		e.logger.Printf("Warning: Connection to libvirt lost, reconnecting...")
-		e.conn.Close()
-
-		conn, err := libvirt.NewConnect(e.uri)
-		if err != nil {
-			e.logger.Printf("Error: Failed to reconnect to libvirt: %v", err)
-			return 0.0
-		}
-		e.conn = conn
-		e.logger.Println("Successfully reconnected to libvirt")
-	}
-
-	// Use a wait group to wait for all scrapers to complete
-	var wg sync.WaitGroup
-	
-	// Collect metrics from all scrapers
-	for _, scraper := range e.scrapers {
-		wg.Add(1)
-		go func(scraper Scraper) {
-			defer wg.Done()
-			
-			label := scraper.Name()
-			scrapeTime := time.Now()
-			
-			scrapeContext, cancel := context.WithTimeout(ctx, e.scrapeTimeout)
-			defer cancel()
-			
-			scrapeSuccess := 1.0
-			if err := scraper.Collect(scrapeContext, e.conn, ch); err != nil {
-				e.logger.Printf("Error scraping %s: %v", label, err)
-				scrapeSuccess = 0.0
-			}
-			
-			// Export scrape success and duration metrics
-			ch <- prometheus.MustNewConstMetric(e.scrapeSuccess, prometheus.GaugeValue, scrapeSuccess, label)
-			ch <- prometheus.MustNewConstMetric(e.scrapeDuration, prometheus.GaugeValue, time.Since(scrapeTime).Seconds(), label)
-		}(scraper)
-	}
-	
-	wg.Wait()
-	return 1.0
-}
-
-// Close closes the libvirt connection
-func (e *Exporter) Close() error {
-	if e.conn != nil {
-		e.logger.Println("Closing libvirt connection...")
-		_, err := e.conn.Close()
-		e.logger.Println("Libvirt connection closed")
-		return err
-	}
-	return nil
-}
-
-// DomainInfoScraper collects basic domain information
-type DomainInfoScraper struct {
+// DomainInfoCollector collects basic domain information
+type DomainInfoCollector struct {
 	vmStatus        *prometheus.Desc
 	vmCPUTime       *prometheus.Desc
 	vmMemoryCurrent *prometheus.Desc
@@ -187,9 +25,9 @@ type DomainInfoScraper struct {
 	vmUptime        *prometheus.Desc
 }
 
-// NewDomainInfoScraper creates a new DomainInfoScraper
-func NewDomainInfoScraper() *DomainInfoScraper {
-	return &DomainInfoScraper{
+// NewDomainInfoCollector creates a new DomainInfoCollector
+func NewDomainInfoCollector() *DomainInfoCollector {
+	return &DomainInfoCollector{
 		vmStatus: prometheus.NewDesc(
 			"libvirt_vm_status",
 			"Status of the virtual machine (1=running, 0=other)",
@@ -223,107 +61,71 @@ func NewDomainInfoScraper() *DomainInfoScraper {
 	}
 }
 
-// Name implements Scraper
-func (s *DomainInfoScraper) Name() string {
-	return "domain_info"
+// Describe implements the prometheus.Collector interface for DomainInfoCollector
+func (c *DomainInfoCollector) Describe(ch chan<- *prometheus.Desc) {
+	ch <- c.vmStatus
+	ch <- c.vmCPUTime
+	ch <- c.vmMemoryCurrent
+	ch <- c.vmMemoryMax
+	ch <- c.vmUptime
 }
 
-// Help implements Scraper
-func (s *DomainInfoScraper) Help() string {
-	return "Collect domain information"
-}
-
-// Version implements Scraper
-func (s *DomainInfoScraper) Version() float64 {
-	return 1.0
-}
-
-// Describe implements Scraper
-func (s *DomainInfoScraper) Describe(ch chan<- *prometheus.Desc) {
-	ch <- s.vmStatus
-	ch <- s.vmCPUTime
-	ch <- s.vmMemoryCurrent
-	ch <- s.vmMemoryMax
-	ch <- s.vmUptime
-}
-
-// Collect implements Scraper
-func (s *DomainInfoScraper) Collect(ctx context.Context, conn *libvirt.Connect, ch chan<- prometheus.Metric) error {
-	// Get all domains
-	domains, err := conn.ListAllDomains(libvirt.CONNECT_LIST_DOMAINS_ACTIVE | libvirt.CONNECT_LIST_DOMAINS_INACTIVE)
+// Collect implements the Collector interface for DomainInfoCollector
+func (c *DomainInfoCollector) Collect(ch chan<- prometheus.Metric, conn *libvirt.Connect, domain *libvirt.Domain) {
+	domainInfo, err := domain.GetInfo()
 	if err != nil {
-		return fmt.Errorf("failed to list domains: %w", err)
-	}
-	defer func() {
-		for _, domain := range domains {
-			domain.Free()
-		}
-	}()
-
-	for _, domain := range domains {
-		domainInfo, err := domain.GetInfo()
-		if err != nil {
-			s.logError(domain, "get domain info", err)
-			continue
-		}
-
-		domainName, err := domain.GetName()
-		if err != nil {
-			s.logError(domain, "get domain name", err)
-			continue
-		}
-
-		domainUUID, err := domain.GetUUIDString()
-		if err != nil {
-			s.logError(domain, "get domain UUID", err)
-			continue
-		}
-
-		// VM status metric
-		status := 0.0
-		if domainInfo.State == libvirt.DOMAIN_RUNNING {
-			status = 1.0
-		}
-		ch <- prometheus.MustNewConstMetric(s.vmStatus, prometheus.GaugeValue, status, domainName, domainUUID)
-
-		// CPU time metric (convert from nanoseconds to seconds)
-		ch <- prometheus.MustNewConstMetric(s.vmCPUTime, prometheus.CounterValue, float64(domainInfo.CpuTime)/1e9, domainName, domainUUID)
-
-		// Memory metrics
-		ch <- prometheus.MustNewConstMetric(s.vmMemoryCurrent, prometheus.GaugeValue, float64(domainInfo.Memory)*1024, domainName, domainUUID)
-		ch <- prometheus.MustNewConstMetric(s.vmMemoryMax, prometheus.GaugeValue, float64(domainInfo.MaxMem)*1024, domainName, domainUUID)
-
-		// Only collect uptime for running domains
-		if domainInfo.State == libvirt.DOMAIN_RUNNING {
-			// Collect uptime (simplified - using current time minus start time)
-			domainTime, _, err := domain.GetTime(0)
-			if err == nil {
-				uptime := time.Since(time.Unix(int64(domainTime/1000), 0)).Seconds()
-				ch <- prometheus.MustNewConstMetric(s.vmUptime, prometheus.GaugeValue, uptime, domainName, domainUUID)
-			}
-		}
+		log.Printf("Failed to get domain info: %v", err)
+		return
 	}
 
-	return nil
+	domainName, err := domain.GetName()
+	if err != nil {
+		log.Printf("Failed to get domain name: %v", err)
+		return
+	}
+
+	domainUUID, err := domain.GetUUIDString()
+	if err != nil {
+		log.Printf("Failed to get domain UUID: %v", err)
+		return
+	}
+
+	// VM status metric
+	status := 0.0
+	if domainInfo.State == libvirt.DOMAIN_RUNNING {
+		status = 1.0
+	}
+	ch <- prometheus.MustNewConstMetric(c.vmStatus, prometheus.GaugeValue, status, domainName, domainUUID)
+
+	// CPU time metric (convert from nanoseconds to seconds)
+	ch <- prometheus.MustNewConstMetric(c.vmCPUTime, prometheus.CounterValue, float64(domainInfo.CpuTime)/1e9, domainName, domainUUID)
+
+	// Memory metrics
+	ch <- prometheus.MustNewConstMetric(c.vmMemoryCurrent, prometheus.GaugeValue, float64(domainInfo.Memory)*1024, domainName, domainUUID)
+	ch <- prometheus.MustNewConstMetric(c.vmMemoryMax, prometheus.GaugeValue, float64(domainInfo.MaxMem)*1024, domainName, domainUUID)
+
+	// Only collect uptime for running domains
+	if domainInfo.State == libvirt.DOMAIN_RUNNING {
+		// Collect uptime (simplified - using current time minus start time)
+		domainTime, _, err := domain.GetTime(0)
+		if err == nil {
+			uptime := time.Since(time.Unix(int64(domainTime/1000), 0)).Seconds()
+			ch <- prometheus.MustNewConstMetric(c.vmUptime, prometheus.GaugeValue, uptime, domainName, domainUUID)
+		}
+	}
 }
 
-func (s *DomainInfoScraper) logError(domain libvirt.Domain, operation string, err error) {
-	name, _ := domain.GetName()
-	uuid, _ := domain.GetUUIDString()
-	log.Printf("Error %s for domain %s (%s): %v", operation, name, uuid, err)
-}
-
-// DiskScraper collects disk I/O statistics
-type DiskScraper struct {
+// DiskCollector collects disk I/O statistics
+type DiskCollector struct {
 	vmDiskReadBytes  *prometheus.Desc
 	vmDiskWriteBytes *prometheus.Desc
 	vmDiskReadOps    *prometheus.Desc
 	vmDiskWriteOps   *prometheus.Desc
 }
 
-// NewDiskScraper creates a new DiskScraper
-func NewDiskScraper() *DiskScraper {
-	return &DiskScraper{
+// NewDiskCollector creates a new DiskCollector
+func NewDiskCollector() *DiskCollector {
+	return &DiskCollector{
 		vmDiskReadBytes: prometheus.NewDesc(
 			"libvirt_vm_disk_read_bytes_total",
 			"Total bytes read from disk by the virtual machine",
@@ -351,99 +153,64 @@ func NewDiskScraper() *DiskScraper {
 	}
 }
 
-// Name implements Scraper
-func (s *DiskScraper) Name() string {
-	return "disk"
+// Describe implements the prometheus.Collector interface for DiskCollector
+func (c *DiskCollector) Describe(ch chan<- *prometheus.Desc) {
+	ch <- c.vmDiskReadBytes
+	ch <- c.vmDiskWriteBytes
+	ch <- c.vmDiskReadOps
+	ch <- c.vmDiskWriteOps
 }
 
-// Help implements Scraper
-func (s *DiskScraper) Help() string {
-	return "Collect disk I/O statistics"
-}
-
-// Version implements Scraper
-func (s *DiskScraper) Version() float64 {
-	return 1.0
-}
-
-// Describe implements Scraper
-func (s *DiskScraper) Describe(ch chan<- *prometheus.Desc) {
-	ch <- s.vmDiskReadBytes
-	ch <- s.vmDiskWriteBytes
-	ch <- s.vmDiskReadOps
-	ch <- s.vmDiskWriteOps
-}
-
-// Collect implements Scraper
-func (s *DiskScraper) Collect(ctx context.Context, conn *libvirt.Connect, ch chan<- prometheus.Metric) error {
-	// Get all domains
-	domains, err := conn.ListAllDomains(libvirt.CONNECT_LIST_DOMAINS_ACTIVE | libvirt.CONNECT_LIST_DOMAINS_INACTIVE)
+// Collect implements the Collector interface for DiskCollector
+func (c *DiskCollector) Collect(ch chan<- prometheus.Metric, conn *libvirt.Connect, domain *libvirt.Domain) {
+	domainInfo, err := domain.GetInfo()
 	if err != nil {
-		return fmt.Errorf("failed to list domains: %w", err)
-	}
-	defer func() {
-		for _, domain := range domains {
-			domain.Free()
-		}
-	}()
-
-	for _, domain := range domains {
-		domainInfo, err := domain.GetInfo()
-		if err != nil {
-			s.logError(domain, "get domain info", err)
-			continue
-		}
-
-		// Only collect metrics for running domains
-		if domainInfo.State != libvirt.DOMAIN_RUNNING {
-			continue
-		}
-
-		domainName, err := domain.GetName()
-		if err != nil {
-			s.logError(domain, "get domain name", err)
-			continue
-		}
-
-		domainUUID, err := domain.GetUUIDString()
-		if err != nil {
-			s.logError(domain, "get domain UUID", err)
-			continue
-		}
-
-		// Use the approach from the original code to collect disk stats for common block devices
-		blockDevices := []string{"vda", "vdb", "hda", "hdb", "sda", "sdb"}
-		for _, device := range blockDevices {
-			stats, err := domain.BlockStats(device)
-			if err == nil {
-				ch <- prometheus.MustNewConstMetric(s.vmDiskReadBytes, prometheus.CounterValue, float64(stats.RdBytes), domainName, domainUUID, device)
-				ch <- prometheus.MustNewConstMetric(s.vmDiskWriteBytes, prometheus.CounterValue, float64(stats.WrBytes), domainName, domainUUID, device)
-				ch <- prometheus.MustNewConstMetric(s.vmDiskReadOps, prometheus.CounterValue, float64(stats.RdReq), domainName, domainUUID, device)
-				ch <- prometheus.MustNewConstMetric(s.vmDiskWriteOps, prometheus.CounterValue, float64(stats.WrReq), domainName, domainUUID, device)
-			}
-		}
+		log.Printf("Failed to get domain info: %v", err)
+		return
 	}
 
-	return nil
+	// Only collect metrics for running domains
+	if domainInfo.State != libvirt.DOMAIN_RUNNING {
+		return
+	}
+
+	domainName, err := domain.GetName()
+	if err != nil {
+		log.Printf("Failed to get domain name: %v", err)
+		return
+	}
+
+	domainUUID, err := domain.GetUUIDString()
+	if err != nil {
+		log.Printf("Failed to get domain UUID: %v", err)
+		return
+	}
+
+	// Use the approach from the original code to collect disk stats for common block devices
+	// But make it extendable by defining the list of devices in a more configurable way
+	blockDevices := []string{"vda", "vdb", "hda", "hdb", "sda", "sdb"}
+	for _, device := range blockDevices {
+		stats, err := domain.BlockStats(device)
+		if err == nil {
+			ch <- prometheus.MustNewConstMetric(c.vmDiskReadBytes, prometheus.CounterValue, float64(stats.RdBytes), domainName, domainUUID, device)
+			ch <- prometheus.MustNewConstMetric(c.vmDiskWriteBytes, prometheus.CounterValue, float64(stats.WrBytes), domainName, domainUUID, device)
+			ch <- prometheus.MustNewConstMetric(c.vmDiskReadOps, prometheus.CounterValue, float64(stats.RdReq), domainName, domainUUID, device)
+			ch <- prometheus.MustNewConstMetric(c.vmDiskWriteOps, prometheus.CounterValue, float64(stats.WrReq), domainName, domainUUID, device)
+		}
+	}
 }
 
-func (s *DiskScraper) logError(domain libvirt.Domain, operation string, err error) {
-	name, _ := domain.GetName()
-	uuid, _ := domain.GetUUIDString()
-	log.Printf("Error %s for domain %s (%s): %v", operation, name, uuid, err)
-}
-
-// NetworkScraper collects network I/O statistics
-type NetworkScraper struct {
+// NetworkCollector collects network I/O statistics
+type NetworkCollector struct {
 	vmNetworkRxBytes *prometheus.Desc
 	vmNetworkTxBytes *prometheus.Desc
 	vmNetworkRxPkts  *prometheus.Desc
 	vmNetworkTxPkts  *prometheus.Desc
 }
 
-// NewNetworkScraper creates a new NetworkScraper
-func NewNetworkScraper() *NetworkScraper {
-	return &NetworkScraper{
+// NewNetworkCollector creates a new NetworkCollector
+func NewNetworkCollector() *NetworkCollector {
+	return &NetworkCollector{
 		vmNetworkRxBytes: prometheus.NewDesc(
 			"libvirt_vm_network_rx_bytes_total",
 			"Total network bytes received by the virtual machine",
@@ -471,35 +238,123 @@ func NewNetworkScraper() *NetworkScraper {
 	}
 }
 
-// Name implements Scraper
-func (s *NetworkScraper) Name() string {
-	return "network"
+// Describe implements the prometheus.Collector interface for NetworkCollector
+func (c *NetworkCollector) Describe(ch chan<- *prometheus.Desc) {
+	ch <- c.vmNetworkRxBytes
+	ch <- c.vmNetworkTxBytes
+	ch <- c.vmNetworkRxPkts
+	ch <- c.vmNetworkTxPkts
 }
 
-// Help implements Scraper
-func (s *NetworkScraper) Help() string {
-	return "Collect network I/O statistics"
-}
-
-// Version implements Scraper
-func (s *NetworkScraper) Version() float64 {
-	return 1.0
-}
-
-// Describe implements Scraper
-func (s *NetworkScraper) Describe(ch chan<- *prometheus.Desc) {
-	ch <- s.vmNetworkRxBytes
-	ch <- s.vmNetworkTxBytes
-	ch <- s.vmNetworkRxPkts
-	ch <- s.vmNetworkTxPkts
-}
-
-// Collect implements Scraper
-func (s *NetworkScraper) Collect(ctx context.Context, conn *libvirt.Connect, ch chan<- prometheus.Metric) error {
-	// Get all domains
-	domains, err := conn.ListAllDomains(libvirt.CONNECT_LIST_DOMAINS_ACTIVE | libvirt.CONNECT_LIST_DOMAINS_INACTIVE)
+// Collect implements the Collector interface for NetworkCollector
+func (c *NetworkCollector) Collect(ch chan<- prometheus.Metric, conn *libvirt.Connect, domain *libvirt.Domain) {
+	domainInfo, err := domain.GetInfo()
 	if err != nil {
-		return fmt.Errorf("failed to list domains: %w", err)
+		log.Printf("Failed to get domain info: %v", err)
+		return
+	}
+
+	// Only collect metrics for running domains
+	if domainInfo.State != libvirt.DOMAIN_RUNNING {
+		return
+	}
+
+	domainName, err := domain.GetName()
+	if err != nil {
+		log.Printf("Failed to get domain name: %v", err)
+		return
+	}
+
+	domainUUID, err := domain.GetUUIDString()
+	if err != nil {
+		log.Printf("Failed to get domain UUID: %v", err)
+		return
+	}
+
+	// Use the approach from the original code to collect network stats for common interfaces
+	// But make it extendable by defining the list of interfaces in a more configurable way
+	netInterfaces := []string{"vnet0", "vnet1", "eth0", "eth1"}
+	for _, iface := range netInterfaces {
+		stats, err := domain.InterfaceStats(iface)
+		if err == nil {
+			ch <- prometheus.MustNewConstMetric(c.vmNetworkRxBytes, prometheus.CounterValue, float64(stats.RxBytes), domainName, domainUUID, iface)
+			ch <- prometheus.MustNewConstMetric(c.vmNetworkTxBytes, prometheus.CounterValue, float64(stats.TxBytes), domainName, domainUUID, iface)
+			ch <- prometheus.MustNewConstMetric(c.vmNetworkRxPkts, prometheus.CounterValue, float64(stats.RxPackets), domainName, domainUUID, iface)
+			ch <- prometheus.MustNewConstMetric(c.vmNetworkTxPkts, prometheus.CounterValue, float64(stats.TxPackets), domainName, domainUUID, iface)
+		}
+	}
+}
+
+// LibvirtCollector implements the prometheus.Collector interface
+type LibvirtCollector struct {
+	uri          string
+	conn         *libvirt.Connect
+	mutex        sync.RWMutex
+	collectors   []Collector
+	reconnectErr chan error
+}
+
+// NewLibvirtCollector creates a new LibvirtCollector
+func NewLibvirtCollector(uri string) (*LibvirtCollector, error) {
+	log.Printf("Connecting to libvirt at '%s'", uri)
+	conn, err := libvirt.NewConnect(uri)
+	if err != nil {
+		return nil, err
+	}
+
+	alive, err := conn.IsAlive()
+	if err != nil || !alive {
+		return nil, fmt.Errorf("connection is not alive")
+	}
+
+	log.Println("Successfully connected to libvirt")
+
+	collector := &LibvirtCollector{
+		uri:          uri,
+		conn:         conn,
+		reconnectErr: make(chan error),
+	}
+
+	// Initialize individual collectors
+	collector.collectors = append(collector.collectors, NewDomainInfoCollector())
+	collector.collectors = append(collector.collectors, NewDiskCollector())
+	collector.collectors = append(collector.collectors, NewNetworkCollector())
+
+	return collector, nil
+}
+
+// Describe implements the prometheus.Collector interface
+func (c *LibvirtCollector) Describe(ch chan<- *prometheus.Desc) {
+	for _, collector := range c.collectors {
+		collector.Describe(ch)
+	}
+}
+
+// Collect implements the prometheus.Collector interface
+func (c *LibvirtCollector) Collect(ch chan<- prometheus.Metric) {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	// Check connection health
+	alive, err := c.conn.IsAlive()
+	if err != nil || !alive {
+		log.Printf("Warning: Connection to libvirt lost, reconnecting...")
+		c.conn.Close()
+
+		conn, err := libvirt.NewConnect(c.uri)
+		if err != nil {
+			log.Printf("Error: Failed to reconnect to libvirt: %v", err)
+			return
+		}
+		c.conn = conn
+		log.Println("Successfully reconnected to libvirt")
+	}
+
+	// Get all domains
+	domains, err := c.conn.ListAllDomains(libvirt.CONNECT_LIST_DOMAINS_ACTIVE | libvirt.CONNECT_LIST_DOMAINS_INACTIVE)
+	if err != nil {
+		log.Printf("Error: Failed to list domains: %v", err)
+		return
 	}
 	defer func() {
 		for _, domain := range domains {
@@ -508,47 +363,18 @@ func (s *NetworkScraper) Collect(ctx context.Context, conn *libvirt.Connect, ch 
 	}()
 
 	for _, domain := range domains {
-		domainInfo, err := domain.GetInfo()
-		if err != nil {
-			s.logError(domain, "get domain info", err)
-			continue
-		}
-
-		// Only collect metrics for running domains
-		if domainInfo.State != libvirt.DOMAIN_RUNNING {
-			continue
-		}
-
-		domainName, err := domain.GetName()
-		if err != nil {
-			s.logError(domain, "get domain name", err)
-			continue
-		}
-
-		domainUUID, err := domain.GetUUIDString()
-		if err != nil {
-			s.logError(domain, "get domain UUID", err)
-			continue
-		}
-
-		// Use the approach from the original code to collect network stats for common interfaces
-		netInterfaces := []string{"vnet0", "vnet1", "eth0", "eth1"}
-		for _, iface := range netInterfaces {
-			stats, err := domain.InterfaceStats(iface)
-			if err == nil {
-				ch <- prometheus.MustNewConstMetric(s.vmNetworkRxBytes, prometheus.CounterValue, float64(stats.RxBytes), domainName, domainUUID, iface)
-				ch <- prometheus.MustNewConstMetric(s.vmNetworkTxBytes, prometheus.CounterValue, float64(stats.TxBytes), domainName, domainUUID, iface)
-				ch <- prometheus.MustNewConstMetric(s.vmNetworkRxPkts, prometheus.CounterValue, float64(stats.RxPackets), domainName, domainUUID, iface)
-				ch <- prometheus.MustNewConstMetric(s.vmNetworkTxPkts, prometheus.CounterValue, float64(stats.TxPackets), domainName, domainUUID, iface)
-			}
+		// Use individual collectors to gather metrics
+		for _, collector := range c.collectors {
+			collector.Collect(ch, c.conn, &domain)
 		}
 	}
-
-	return nil
 }
 
-func (s *NetworkScraper) logError(domain libvirt.Domain, operation string, err error) {
-	name, _ := domain.GetName()
-	uuid, _ := domain.GetUUIDString()
-	log.Printf("Error %s for domain %s (%s): %v", operation, name, uuid, err)
+// Close closes the libvirt connection
+func (c *LibvirtCollector) Close() {
+	if c.conn != nil {
+		log.Println("Closing libvirt connection...")
+		c.conn.Close()
+		log.Println("Libvirt connection closed")
+	}
 }
