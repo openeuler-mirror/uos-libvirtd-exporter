@@ -40,7 +40,16 @@ type NetworkMetrics struct {
 
 // MetricsCollector defines interface for collecting raw metrics from libvirt
 type MetricsCollector interface {
-	CollectDomainInfo(conn *libvirt.Connect, domain *libvirt.Domain) (*DomainInfoMetrics, error)
-	CollectDiskStats(conn *libvirt.Connect, domain *libvirt.Domain) ([]DiskMetrics, error)
-	CollectNetworkStats(conn *libvirt.Connect, domain *libvirt.Domain) ([]NetworkMetrics, error)
+	CollectDomainInfo(
+		conn *libvirt.Connect,
+		domain *libvirt.Domain,
+	) (*DomainInfoMetrics, error)
+	CollectDiskStats(
+		conn *libvirt.Connect,
+		domain *libvirt.Domain,
+	) ([]DiskMetrics, error)
+	CollectNetworkStats(
+		conn *libvirt.Connect,
+		domain *libvirt.Domain,
+	) ([]NetworkMetrics, error)
 }

@@ -56,7 +56,11 @@ func (c *DiskCollector) Describe(ch chan<- *prometheus.Desc) {
 }
 
 // Collect implements the Collector interface for DiskCollector
-func (c *DiskCollector) Collect(ch chan<- prometheus.Metric, conn *libvirt.Connect, domain *libvirt.Domain) {
+func (c *DiskCollector) Collect(
+	ch chan<- prometheus.Metric, 
+	conn *libvirt.Connect, 
+	domain *libvirt.Domain,
+) {
 	metricsList, err := c.metricsCollector.CollectDiskStats(conn, domain)
 	if err != nil {
 		log.Printf("Failed to collect disk metrics: %v", err)
@@ -64,9 +68,40 @@ func (c *DiskCollector) Collect(ch chan<- prometheus.Metric, conn *libvirt.Conne
 	}
 
 	for _, metrics := range metricsList {
-		ch <- prometheus.MustNewConstMetric(c.vmDiskReadBytes, prometheus.CounterValue, float64(metrics.ReadBytes), metrics.Name, metrics.UUID, metrics.Device)
-		ch <- prometheus.MustNewConstMetric(c.vmDiskWriteBytes, prometheus.CounterValue, float64(metrics.WriteBytes), metrics.Name, metrics.UUID, metrics.Device)
-		ch <- prometheus.MustNewConstMetric(c.vmDiskReadOps, prometheus.CounterValue, float64(metrics.ReadOps), metrics.Name, metrics.UUID, metrics.Device)
-		ch <- prometheus.MustNewConstMetric(c.vmDiskWriteOps, prometheus.CounterValue, float64(metrics.WriteOps), metrics.Name, metrics.UUID, metrics.Device)
+		ch <- prometheus.MustNewConstMetric(
+			c.vmDiskReadBytes, 
+			prometheus.CounterValue, 
+			float64(metrics.ReadBytes), 
+			metrics.Name, 
+			metrics.UUID, 
+			metrics.Device,
+		)
+		
+		ch <- prometheus.MustNewConstMetric(
+			c.vmDiskWriteBytes, 
+			prometheus.CounterValue, 
+			float64(metrics.WriteBytes), 
+			metrics.Name, 
+			metrics.UUID, 
+			metrics.Device,
+		)
+		
+		ch <- prometheus.MustNewConstMetric(
+			c.vmDiskReadOps, 
+			prometheus.CounterValue, 
+			float64(metrics.ReadOps), 
+			metrics.Name, 
+			metrics.UUID, 
+			metrics.Device,
+		)
+		
+		ch <- prometheus.MustNewConstMetric(
+			c.vmDiskWriteOps, 
+			prometheus.CounterValue, 
+			float64(metrics.WriteOps), 
+			metrics.Name, 
+			metrics.UUID, 
+			metrics.Device,
+		)
 	}
 }

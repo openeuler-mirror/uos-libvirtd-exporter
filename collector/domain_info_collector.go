@@ -64,7 +64,11 @@ func (c *DomainInfoCollector) Describe(ch chan<- *prometheus.Desc) {
 }
 
 // Collect implements the Collector interface for DomainInfoCollector
-func (c *DomainInfoCollector) Collect(ch chan<- prometheus.Metric, conn *libvirt.Connect, domain *libvirt.Domain) {
+func (c *DomainInfoCollector) Collect(
+	ch chan<- prometheus.Metric, 
+	conn *libvirt.Connect, 
+	domain *libvirt.Domain,
+) {
 	metrics, err := c.metricsCollector.CollectDomainInfo(conn, domain)
 	if err != nil {
 		log.Printf("Failed to collect domain info metrics: %v", err)
@@ -72,17 +76,48 @@ func (c *DomainInfoCollector) Collect(ch chan<- prometheus.Metric, conn *libvirt
 	}
 
 	// VM status metric
-	ch <- prometheus.MustNewConstMetric(c.vmStatus, prometheus.GaugeValue, metrics.Status, metrics.Name, metrics.UUID)
+	ch <- prometheus.MustNewConstMetric(
+		c.vmStatus, 
+		prometheus.GaugeValue, 
+		metrics.Status, 
+		metrics.Name, 
+		metrics.UUID,
+	)
 
 	// CPU time metric
-	ch <- prometheus.MustNewConstMetric(c.vmCPUTime, prometheus.CounterValue, metrics.CPUTime, metrics.Name, metrics.UUID)
+	ch <- prometheus.MustNewConstMetric(
+		c.vmCPUTime, 
+		prometheus.CounterValue, 
+		metrics.CPUTime, 
+		metrics.Name, 
+		metrics.UUID,
+	)
 
 	// Memory metrics
-	ch <- prometheus.MustNewConstMetric(c.vmMemoryCurrent, prometheus.GaugeValue, metrics.MemoryCurrent, metrics.Name, metrics.UUID)
-	ch <- prometheus.MustNewConstMetric(c.vmMemoryMax, prometheus.GaugeValue, metrics.MemoryMax, metrics.Name, metrics.UUID)
+	ch <- prometheus.MustNewConstMetric(
+		c.vmMemoryCurrent, 
+		prometheus.GaugeValue, 
+		metrics.MemoryCurrent, 
+		metrics.Name, 
+		metrics.UUID,
+	)
+	
+	ch <- prometheus.MustNewConstMetric(
+		c.vmMemoryMax, 
+		prometheus.GaugeValue, 
+		metrics.MemoryMax, 
+		metrics.Name, 
+		metrics.UUID,
+	)
 
 	// Only collect uptime for running domains
 	if metrics.HasUptime {
-		ch <- prometheus.MustNewConstMetric(c.vmUptime, prometheus.GaugeValue, metrics.Uptime, metrics.Name, metrics.UUID)
+		ch <- prometheus.MustNewConstMetric(
+			c.vmUptime, 
+			prometheus.GaugeValue, 
+			metrics.Uptime, 
+			metrics.Name, 
+			metrics.UUID,
+		)
 	}
 }

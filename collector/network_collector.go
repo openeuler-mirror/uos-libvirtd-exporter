@@ -56,7 +56,11 @@ func (c *NetworkCollector) Describe(ch chan<- *prometheus.Desc) {
 }
 
 // Collect implements the Collector interface for NetworkCollector
-func (c *NetworkCollector) Collect(ch chan<- prometheus.Metric, conn *libvirt.Connect, domain *libvirt.Domain) {
+func (c *NetworkCollector) Collect(
+	ch chan<- prometheus.Metric, 
+	conn *libvirt.Connect, 
+	domain *libvirt.Domain,
+) {
 	metricsList, err := c.metricsCollector.CollectNetworkStats(conn, domain)
 	if err != nil {
 		log.Printf("Failed to collect network metrics: %v", err)
@@ -64,9 +68,40 @@ func (c *NetworkCollector) Collect(ch chan<- prometheus.Metric, conn *libvirt.Co
 	}
 
 	for _, metrics := range metricsList {
-		ch <- prometheus.MustNewConstMetric(c.vmNetworkRxBytes, prometheus.CounterValue, float64(metrics.RxBytes), metrics.Name, metrics.UUID, metrics.Interface)
-		ch <- prometheus.MustNewConstMetric(c.vmNetworkTxBytes, prometheus.CounterValue, float64(metrics.TxBytes), metrics.Name, metrics.UUID, metrics.Interface)
-		ch <- prometheus.MustNewConstMetric(c.vmNetworkRxPkts, prometheus.CounterValue, float64(metrics.RxPackets), metrics.Name, metrics.UUID, metrics.Interface)
-		ch <- prometheus.MustNewConstMetric(c.vmNetworkTxPkts, prometheus.CounterValue, float64(metrics.TxPackets), metrics.Name, metrics.UUID, metrics.Interface)
+		ch <- prometheus.MustNewConstMetric(
+			c.vmNetworkRxBytes, 
+			prometheus.CounterValue, 
+			float64(metrics.RxBytes), 
+			metrics.Name, 
+			metrics.UUID, 
+			metrics.Interface,
+		)
+		
+		ch <- prometheus.MustNewConstMetric(
+			c.vmNetworkTxBytes, 
+			prometheus.CounterValue, 
+			float64(metrics.TxBytes), 
+			metrics.Name, 
+			metrics.UUID, 
+			metrics.Interface,
+		)
+		
+		ch <- prometheus.MustNewConstMetric(
+			c.vmNetworkRxPkts, 
+			prometheus.CounterValue, 
+			float64(metrics.RxPackets), 
+			metrics.Name, 
+			metrics.UUID, 
+			metrics.Interface,
+		)
+		
+		ch <- prometheus.MustNewConstMetric(
+			c.vmNetworkTxPkts, 
+			prometheus.CounterValue, 
+			float64(metrics.TxPackets), 
+			metrics.Name, 
+			metrics.UUID, 
+			metrics.Interface,
+		)
 	}
 }

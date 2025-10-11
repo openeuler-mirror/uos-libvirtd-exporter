@@ -15,7 +15,10 @@ func NewLibvirtMetricsCollector() *LibvirtMetricsCollector {
 }
 
 // CollectDomainInfo collects basic domain information from libvirt
-func (mc *LibvirtMetricsCollector) CollectDomainInfo(conn *libvirt.Connect, domain *libvirt.Domain) (*DomainInfoMetrics, error) {
+func (mc *LibvirtMetricsCollector) CollectDomainInfo(
+	conn *libvirt.Connect,
+	domain *libvirt.Domain,
+) (*DomainInfoMetrics, error) {
 	domainInfo, err := domain.GetInfo()
 	if err != nil {
 		return nil, err
@@ -50,7 +53,8 @@ func (mc *LibvirtMetricsCollector) CollectDomainInfo(conn *libvirt.Connect, doma
 	if domainInfo.State == libvirt.DOMAIN_RUNNING {
 		domainTime, _, err := domain.GetTime(0)
 		if err == nil {
-			metrics.Uptime = time.Since(time.Unix(int64(domainTime/1000), 0)).Seconds()
+			metrics.Uptime = time.Since(time.Unix(int64(domainTime/1000), 0)).
+				Seconds()
 			metrics.HasUptime = true
 		}
 	}
@@ -59,7 +63,10 @@ func (mc *LibvirtMetricsCollector) CollectDomainInfo(conn *libvirt.Connect, doma
 }
 
 // CollectDiskStats collects disk I/O statistics from libvirt
-func (mc *LibvirtMetricsCollector) CollectDiskStats(conn *libvirt.Connect, domain *libvirt.Domain) ([]DiskMetrics, error) {
+func (mc *LibvirtMetricsCollector) CollectDiskStats(
+	conn *libvirt.Connect,
+	domain *libvirt.Domain,
+) ([]DiskMetrics, error) {
 	domainInfo, err := domain.GetInfo()
 	if err != nil {
 		return nil, err
@@ -104,7 +111,10 @@ func (mc *LibvirtMetricsCollector) CollectDiskStats(conn *libvirt.Connect, domai
 }
 
 // CollectNetworkStats collects network I/O statistics from libvirt
-func (mc *LibvirtMetricsCollector) CollectNetworkStats(conn *libvirt.Connect, domain *libvirt.Domain) ([]NetworkMetrics, error) {
+func (mc *LibvirtMetricsCollector) CollectNetworkStats(
+	conn *libvirt.Connect,
+	domain *libvirt.Domain,
+) ([]NetworkMetrics, error) {
 	domainInfo, err := domain.GetInfo()
 	if err != nil {
 		return nil, err

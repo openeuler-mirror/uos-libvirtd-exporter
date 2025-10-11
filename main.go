@@ -53,7 +53,11 @@ func main() {
 	signalHandler := signal.NewHandler(collector)
 	signalHandler.Start()
 
-	log.Printf("UOS Libvirt Exporter is ready to serve requests on %s%s", cfg.ListenAddr, cfg.MetricsPath)
+	log.Printf(
+		"UOS Libvirt Exporter is ready to serve requests on %s%s",
+		cfg.ListenAddr,
+		cfg.MetricsPath,
+	)
 
 	// Start HTTP server
 	if err := server.Start(); err != nil {

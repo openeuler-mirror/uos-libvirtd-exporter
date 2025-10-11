@@ -60,7 +60,11 @@ func LoadConfigFromFile(configFile string) (*FileConfig, error) {
 	// Read config file
 	data, err := ioutil.ReadFile(configFile)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read config file %s: %w", configFile, err)
+		return nil, fmt.Errorf(
+			"failed to read config file %s: %w",
+			configFile,
+			err,
+		)
 	}
 
 	// Parse YAML
