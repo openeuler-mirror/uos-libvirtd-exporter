@@ -57,8 +57,8 @@ func (c *DiskCollector) Describe(ch chan<- *prometheus.Desc) {
 
 // Collect implements the Collector interface for DiskCollector
 func (c *DiskCollector) Collect(
-	ch chan<- prometheus.Metric, 
-	conn *libvirt.Connect, 
+	ch chan<- prometheus.Metric,
+	conn *libvirt.Connect,
 	domain *libvirt.Domain,
 ) {
 	metricsList, err := c.metricsCollector.CollectDiskStats(conn, domain)
@@ -69,38 +69,38 @@ func (c *DiskCollector) Collect(
 
 	for _, metrics := range metricsList {
 		ch <- prometheus.MustNewConstMetric(
-			c.vmDiskReadBytes, 
-			prometheus.CounterValue, 
-			float64(metrics.ReadBytes), 
-			metrics.Name, 
-			metrics.UUID, 
+			c.vmDiskReadBytes,
+			prometheus.CounterValue,
+			float64(metrics.ReadBytes),
+			metrics.Name,
+			metrics.UUID,
 			metrics.Device,
 		)
-		
+
 		ch <- prometheus.MustNewConstMetric(
-			c.vmDiskWriteBytes, 
-			prometheus.CounterValue, 
-			float64(metrics.WriteBytes), 
-			metrics.Name, 
-			metrics.UUID, 
+			c.vmDiskWriteBytes,
+			prometheus.CounterValue,
+			float64(metrics.WriteBytes),
+			metrics.Name,
+			metrics.UUID,
 			metrics.Device,
 		)
-		
+
 		ch <- prometheus.MustNewConstMetric(
-			c.vmDiskReadOps, 
-			prometheus.CounterValue, 
-			float64(metrics.ReadOps), 
-			metrics.Name, 
-			metrics.UUID, 
+			c.vmDiskReadOps,
+			prometheus.CounterValue,
+			float64(metrics.ReadOps),
+			metrics.Name,
+			metrics.UUID,
 			metrics.Device,
 		)
-		
+
 		ch <- prometheus.MustNewConstMetric(
-			c.vmDiskWriteOps, 
-			prometheus.CounterValue, 
-			float64(metrics.WriteOps), 
-			metrics.Name, 
-			metrics.UUID, 
+			c.vmDiskWriteOps,
+			prometheus.CounterValue,
+			float64(metrics.WriteOps),
+			metrics.Name,
+			metrics.UUID,
 			metrics.Device,
 		)
 	}

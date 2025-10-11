@@ -50,10 +50,7 @@ func NewLibvirtCollector(uri string) (*LibvirtCollector, error) {
 	}
 
 	// Initialize individual collectors
-	collector.collectors = append(
-		collector.collectors,
-		NewDomainInfoCollector(),
-	)
+	collector.collectors = append(collector.collectors, NewDomainInfoCollector())
 	collector.collectors = append(collector.collectors, NewDiskCollector())
 	collector.collectors = append(collector.collectors, NewNetworkCollector())
 
