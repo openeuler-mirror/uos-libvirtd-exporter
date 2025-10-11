@@ -11,15 +11,15 @@ import (
 
 // Handler handles OS signals for graceful shutdown
 type Handler struct {
-	collector *collector.LibvirtCollector
-	sigChan   chan os.Signal
+	exporter *collector.Exporter
+	sigChan  chan os.Signal
 }
 
 // NewHandler creates a new signal handler
-func NewHandler(collector *collector.LibvirtCollector) *Handler {
+func NewHandler(exporter *collector.Exporter) *Handler {
 	return &Handler{
-		collector: collector,
-		sigChan:   make(chan os.Signal, 1),
+		exporter: exporter,
+		sigChan:  make(chan os.Signal, 1),
 	}
 }
 
@@ -37,8 +37,8 @@ func (s *Handler) Start() {
 
 // shutdown performs cleanup operations
 func (s *Handler) shutdown() {
-	if s.collector != nil {
-		s.collector.Close()
+	if s.exporter != nil {
+		s.exporter.Close()
 	}
 	log.Println("Shutdown complete")
 }
