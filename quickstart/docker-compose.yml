@@ -8,6 +8,7 @@ services:
       - "9177:9177"
     volumes:
       - /var/run/libvirt/libvirt-sock:/var/run/libvirt/libvirt-sock:ro
+      - ../config.yaml:/etc/uos-libvirtd-exporter/config.yaml:ro
     privileged: true
     restart: unless-stopped
     depends_on:
@@ -28,6 +29,7 @@ services:
     ports:
       - "3000:3000"
     volumes:
+      - grafana-storage:/var/lib/grafana
       - ./grafana/config.ini:/etc/grafana/grafana.ini
       - ./grafana/provisioning:/etc/grafana/provisioning
       - ./grafana/dashboards:/var/lib/grafana/dashboards
@@ -35,3 +37,5 @@ services:
     depends_on:
       - prometheus
 
+volumes:
+  grafana-storage:

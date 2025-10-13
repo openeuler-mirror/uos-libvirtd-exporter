@@ -30,7 +30,7 @@ FROM alpine:latest
 RUN sed -i 's|https://dl-cdn.alpinelinux.org/alpine/|https://mirrors.ustc.edu.cn/alpine/|g' /etc/apk/repositories
 
 # Install runtime dependencies
-RUN apk add --no-cache libvirt-client
+RUN apk add --no-cache libvirt-client openssh-client
 
 # Create non-root user
 RUN adduser -D -g '' exporter
@@ -38,8 +38,12 @@ RUN adduser -D -g '' exporter
 # Copy binary from builder
 COPY --from=builder /build/uos-libvirtd-exporter /usr/local/bin/uos-libvirtd-exporter
 
+# Copy config file
+COPY --from=builder /build/config.yaml /etc/uos-libvirtd-exporter/config.yaml
+
 # Change ownership
 RUN chown exporter:exporter /usr/local/bin/uos-libvirtd-exporter
+RUN chown exporter:exporter /etc/uos-libvirtd-exporter/config.yaml
 
 # Switch to non-root user
 USER exporter
@@ -52,4 +56,4 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
   CMD wget --no-verbose --tries=1 --spider http://localhost:9177/ || exit 1
 
 # Run the exporter
-ENTRYPOINT ["/usr/local/bin/uos-libvirtd-exporter", "--libvirt.uri=qemu+ssh://root@10.7.62.199/system"]
+ENTRYPOINT ["/usr/local/bin/uos-libvirtd-exporter"]
