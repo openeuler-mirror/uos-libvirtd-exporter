@@ -14,6 +14,9 @@ type DomainInfoCollector struct {
 	vmMemoryCurrent  *prometheus.Desc
 	vmMemoryMax      *prometheus.Desc
 	vmUptime         *prometheus.Desc
+	vmAutostart      *prometheus.Desc
+	vmPersistent     *prometheus.Desc
+	vmManagedSave    *prometheus.Desc
 	metricsCollector MetricsCollector
 }
 
@@ -50,6 +53,24 @@ func NewDomainInfoCollector() *DomainInfoCollector {
 			[]string{"domain", "uuid"},
 			nil,
 		),
+		vmAutostart: prometheus.NewDesc(
+			"libvirt_vm_autostart_enabled",
+			"Whether the virtual machine is set to autostart",
+			[]string{"domain", "uuid"},
+			nil,
+		),
+		vmPersistent: prometheus.NewDesc(
+			"libvirt_vm_persistent",
+			"Whether the virtual machine is persistent",
+			[]string{"domain", "uuid"},
+			nil,
+		),
+		vmManagedSave: prometheus.NewDesc(
+			"libvirt_vm_managed_save",
+			"Whether the virtual machine has a managed save image",
+			[]string{"domain", "uuid"},
+			nil,
+		),
 		metricsCollector: NewLibvirtMetricsCollector(),
 	}
 }
@@ -61,6 +82,9 @@ func (c *DomainInfoCollector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- c.vmMemoryCurrent
 	ch <- c.vmMemoryMax
 	ch <- c.vmUptime
+	ch <- c.vmAutostart
+	ch <- c.vmPersistent
+	ch <- c.vmManagedSave
 }
 
 // Collect implements the Collector interface for DomainInfoCollector
@@ -106,6 +130,45 @@ func (c *DomainInfoCollector) Collect(
 		c.vmMemoryMax,
 		prometheus.GaugeValue,
 		metrics.MemoryMax,
+		metrics.Name,
+		metrics.UUID,
+	)
+
+	// Autostart metric
+	var autostartValue float64
+	if metrics.Autostart {
+		autostartValue = 1.0
+	}
+	ch <- prometheus.MustNewConstMetric(
+		c.vmAutostart,
+		prometheus.GaugeValue,
+		autostartValue,
+		metrics.Name,
+		metrics.UUID,
+	)
+
+	// Persistent metric
+	var persistentValue float64
+	if metrics.Persistent {
+		persistentValue = 1.0
+	}
+	ch <- prometheus.MustNewConstMetric(
+		c.vmPersistent,
+		prometheus.GaugeValue,
+		persistentValue,
+		metrics.Name,
+		metrics.UUID,
+	)
+
+	// Managed save metric
+	var managedSaveValue float64
+	if metrics.ManagedSave {
+		managedSaveValue = 1.0
+	}
+	ch <- prometheus.MustNewConstMetric(
+		c.vmManagedSave,
+		prometheus.GaugeValue,
+		managedSaveValue,
 		metrics.Name,
 		metrics.UUID,
 	)

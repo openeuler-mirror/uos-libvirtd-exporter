@@ -13,6 +13,10 @@ type NetworkCollector struct {
 	vmNetworkTxBytes *prometheus.Desc
 	vmNetworkRxPkts  *prometheus.Desc
 	vmNetworkTxPkts  *prometheus.Desc
+	vmNetworkRxErrs  *prometheus.Desc
+	vmNetworkTxErrs  *prometheus.Desc
+	vmNetworkRxDrop  *prometheus.Desc
+	vmNetworkTxDrop  *prometheus.Desc
 	metricsCollector MetricsCollector
 }
 
@@ -43,6 +47,30 @@ func NewNetworkCollector() *NetworkCollector {
 			[]string{"domain", "uuid", "interface"},
 			nil,
 		),
+		vmNetworkRxErrs: prometheus.NewDesc(
+			"libvirt_vm_network_rx_errors_total",
+			"Total network receive errors by the virtual machine",
+			[]string{"domain", "uuid", "interface"},
+			nil,
+		),
+		vmNetworkTxErrs: prometheus.NewDesc(
+			"libvirt_vm_network_tx_errors_total",
+			"Total network transmit errors by the virtual machine",
+			[]string{"domain", "uuid", "interface"},
+			nil,
+		),
+		vmNetworkRxDrop: prometheus.NewDesc(
+			"libvirt_vm_network_rx_dropped_total",
+			"Total network receive packets dropped by the virtual machine",
+			[]string{"domain", "uuid", "interface"},
+			nil,
+		),
+		vmNetworkTxDrop: prometheus.NewDesc(
+			"libvirt_vm_network_tx_dropped_total",
+			"Total network transmit packets dropped by the virtual machine",
+			[]string{"domain", "uuid", "interface"},
+			nil,
+		),
 		metricsCollector: NewLibvirtMetricsCollector(),
 	}
 }
@@ -53,6 +81,10 @@ func (c *NetworkCollector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- c.vmNetworkTxBytes
 	ch <- c.vmNetworkRxPkts
 	ch <- c.vmNetworkTxPkts
+	ch <- c.vmNetworkRxErrs
+	ch <- c.vmNetworkTxErrs
+	ch <- c.vmNetworkRxDrop
+	ch <- c.vmNetworkTxDrop
 }
 
 // Collect implements the Collector interface for NetworkCollector
@@ -99,6 +131,42 @@ func (c *NetworkCollector) Collect(
 			c.vmNetworkTxPkts,
 			prometheus.CounterValue,
 			float64(metrics.TxPackets),
+			metrics.Name,
+			metrics.UUID,
+			metrics.Interface,
+		)
+
+		ch <- prometheus.MustNewConstMetric(
+			c.vmNetworkRxErrs,
+			prometheus.CounterValue,
+			float64(metrics.RxErrors),
+			metrics.Name,
+			metrics.UUID,
+			metrics.Interface,
+		)
+
+		ch <- prometheus.MustNewConstMetric(
+			c.vmNetworkTxErrs,
+			prometheus.CounterValue,
+			float64(metrics.TxErrors),
+			metrics.Name,
+			metrics.UUID,
+			metrics.Interface,
+		)
+
+		ch <- prometheus.MustNewConstMetric(
+			c.vmNetworkRxDrop,
+			prometheus.CounterValue,
+			float64(metrics.RxDrops),
+			metrics.Name,
+			metrics.UUID,
+			metrics.Interface,
+		)
+
+		ch <- prometheus.MustNewConstMetric(
+			c.vmNetworkTxDrop,
+			prometheus.CounterValue,
+			float64(metrics.TxDrops),
 			metrics.Name,
 			metrics.UUID,
 			metrics.Interface,
