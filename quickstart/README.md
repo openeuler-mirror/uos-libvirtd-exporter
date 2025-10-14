@@ -13,6 +13,7 @@ quickstart/
 │   │   └── dashboards/
 │   │       └── dashboard.yml
 │   └── config.ini           # Grafana 配置文件
+├── control.sh               # 控制脚本（用于启停服务）
 ├── Dockerfile               # uos-libvirtd-exporter 镜像构建文件
 ├── dashboard.json           # Grafana 仪表板配置文件
 ├── docker-compose.yml       # Docker Compose 编排文件
@@ -34,7 +35,10 @@ quickstart/
 git clone https://gitee.com/openeuler/uos-libvirtd-exporter.git
 cd uos-libvirtd-exporter/quickstart
 
-# 启动所有服务
+# 方法1: 使用控制脚本启动（推荐）
+./control.sh start
+
+# 方法2: 直接使用 docker-compose
 docker-compose up -d
 ```
 
@@ -56,14 +60,44 @@ docker-compose up -d
 检查服务是否正常运行:
 
 ```bash
-# 检查容器状态
+# 使用控制脚本查看状态
+./control.sh status
+
+# 或者直接检查容器状态
 docker-compose ps
 
 # 检查 libvirt-exporter 指标
-curl http://localhost:9197/metrics
+curl http://localhost:9177/metrics
 
 # 检查 Prometheus 目标状态
 curl http://localhost:9091/api/v1/targets
+```
+
+## 控制脚本使用说明
+
+控制脚本提供了一个简单易用的界面来管理整个监控环境：
+
+```bash
+# 启动所有服务
+./control.sh start
+
+# 停止所有服务
+./control.sh stop
+
+# 重启所有服务
+./control.sh restart
+
+# 查看服务状态
+./control.sh status
+
+# 查看服务日志
+./control.sh logs
+
+# 清理所有服务和数据
+./control.sh clean
+
+# 显示帮助信息
+./control.sh help
 ```
 
 ## 仪表板说明
@@ -103,7 +137,7 @@ global:
 
 然后重启 Prometheus:
 ```bash
-docker-compose restart prometheus
+./control.sh restart
 ```
 
 ### 使用不同的端口
@@ -134,7 +168,7 @@ ports:
 
 检查日志以获取更多信息:
 ```bash
-docker-compose logs libvirtd-exporter
+./control.sh logs
 ```
 
 ### 没有数据显示在 Grafana 中
@@ -149,10 +183,10 @@ docker-compose logs libvirtd-exporter
 
 ```bash
 # 停止所有服务但保留数据
-docker-compose down
+./control.sh stop
 
 # 停止服务并清除所有数据
-docker-compose down -v
+./control.sh clean
 ```
 
 ## 架构图
