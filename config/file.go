@@ -64,7 +64,7 @@ func getDefaultConfigPaths() []string {
 // LoadConfigFromFile loads configuration from YAML file
 func LoadConfigFromFile(configFile string) (*FileConfig, error) {
 	paths := []string{}
-	
+
 	if configFile == "" {
 		// 如果没有指定配置文件，则按照默认路径搜索
 		paths = getDefaultConfigPaths()
@@ -76,7 +76,7 @@ func LoadConfigFromFile(configFile string) (*FileConfig, error) {
 	var data []byte
 	var usedPath string
 	var err error
-	
+
 	// 按优先级顺序尝试加载配置文件
 	for _, path := range paths {
 		absPath, _ := filepath.Abs(path)
@@ -85,21 +85,21 @@ func LoadConfigFromFile(configFile string) (*FileConfig, error) {
 			usedPath = absPath
 			break
 		}
-		
+
 		// 如果是用户指定的配置文件且不存在，则返回错误
 		if configFile != "" {
 			return nil, fmt.Errorf("failed to read config file %s: %w", absPath, err)
 		}
-		
+
 		// 如果是默认路径且文件不存在，继续尝试下一个路径
 		if os.IsNotExist(err) {
 			continue
 		}
-		
+
 		// 其他错误，返回
 		return nil, fmt.Errorf("failed to read config file %s: %w", absPath, err)
 	}
-	
+
 	// 如果所有路径都尝试过了还是没有找到配置文件
 	if err != nil {
 		return nil, fmt.Errorf("failed to find config file in any of the default locations: %v", paths)
