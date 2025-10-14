@@ -10,16 +10,11 @@ RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
-PURPLE='\033[0;35m'
 CYAN='\033[0;36m'
 NC='\033[0m' # No Color
 
 # 脚本信息
-SCRIPT_VERSION="1.0.0"
 SCRIPT_NAME="UOS Libvirt Exporter Control Script"
-
-# 服务状态
-SERVICES=("uos-libvirtd-exporter" "uos-prometheus" "uos-grafana")
 
 # 显示脚本使用说明
 show_help() {
@@ -46,9 +41,9 @@ show_help() {
     echo -e "${CYAN}==============================================================================${NC}"
 }
 
-# 检查 docker-compose 是否可用
+# 检查 docker compose 是否可用
 check_docker_compose() {
-    if ! command -v docker-compose &> /dev/null && ! docker compose version &> /dev/null; then
+    if ! command -v docker-compose &>/dev/null && ! docker compose version &>/dev/null; then
         echo -e "${RED}错误: 未找到 docker-compose 或 docker compose${NC}"
         echo "请先安装 Docker 和 Docker Compose"
         exit 1
@@ -68,14 +63,14 @@ check_directory() {
 start_services() {
     echo -e "${BLUE}正在启动 UOS Libvirt Exporter 环境...${NC}"
     echo ""
-    
+
     # 检查服务是否已在运行
     if docker compose ps | grep -q "running"; then
         echo -e "${YELLOW}服务已在运行中${NC}"
         show_status
         return 0
     fi
-    
+
     # 启动服务
     if docker compose up -d; then
         echo ""
@@ -91,7 +86,7 @@ start_services() {
 # 停止服务
 stop_services() {
     echo -e "${BLUE}正在停止服务...${NC}"
-    
+
     if docker compose down; then
         echo -e "${GREEN}✓ 服务已停止${NC}"
     else
@@ -141,27 +136,27 @@ show_logs() {
     echo ""
     echo -n "请输入选项 (1-4): "
     read -r choice
-    
+
     case $choice in
-        1)
-            echo -e "${BLUE}uos-libvirtd-exporter 日志:${NC}"
-            docker compose logs -f uos-libvirtd-exporter
-            ;;
-        2)
-            echo -e "${BLUE}uos-prometheus 日志:${NC}"
-            docker compose logs -f uos-prometheus
-            ;;
-        3)
-            echo -e "${BLUE}uos-grafana 日志:${NC}"
-            docker compose logs -f uos-grafana
-            ;;
-        4)
-            echo -e "${BLUE}所有服务日志:${NC}"
-            docker compose logs -f
-            ;;
-        *)
-            echo -e "${RED}无效选项${NC}"
-            ;;
+    1)
+        echo -e "${BLUE}uos-libvirtd-exporter 日志:${NC}"
+        docker compose logs -f uos-libvirtd-exporter
+        ;;
+    2)
+        echo -e "${BLUE}uos-prometheus 日志:${NC}"
+        docker compose logs -f uos-prometheus
+        ;;
+    3)
+        echo -e "${BLUE}uos-grafana 日志:${NC}"
+        docker compose logs -f uos-grafana
+        ;;
+    4)
+        echo -e "${BLUE}所有服务日志:${NC}"
+        docker compose logs -f
+        ;;
+    *)
+        echo -e "${RED}无效选项${NC}"
+        ;;
     esac
 }
 
@@ -170,7 +165,7 @@ clean_services() {
     echo -e "${YELLOW}警告: 此操作将删除所有服务和数据卷${NC}"
     echo -n "确认继续? (y/N): "
     read -r confirm
-    
+
     if [[ $confirm == [yY] ]]; then
         echo -e "${BLUE}正在清理所有服务和数据...${NC}"
         docker compose down -v
@@ -185,41 +180,41 @@ main() {
     # 检查依赖和目录
     check_docker_compose
     check_directory
-    
+
     # 如果没有参数，显示帮助
     if [ $# -eq 0 ]; then
         show_help
         exit 0
     fi
-    
+
     # 处理命令行参数
     case "$1" in
-        start)
-            start_services
-            ;;
-        stop)
-            stop_services
-            ;;
-        restart)
-            restart_services
-            ;;
-        status)
-            show_status
-            ;;
-        logs)
-            show_logs
-            ;;
-        clean)
-            clean_services
-            ;;
-        help|--help|-h)
-            show_help
-            ;;
-        *)
-            echo -e "${RED}未知选项: $1${NC}"
-            echo "使用 './control.sh help' 查看帮助信息"
-            exit 1
-            ;;
+    start)
+        start_services
+        ;;
+    stop)
+        stop_services
+        ;;
+    restart)
+        restart_services
+        ;;
+    status)
+        show_status
+        ;;
+    logs)
+        show_logs
+        ;;
+    clean)
+        clean_services
+        ;;
+    help | --help | -h)
+        show_help
+        ;;
+    *)
+        echo -e "${RED}未知选项: $1${NC}"
+        echo "使用 './control.sh help' 查看帮助信息"
+        exit 1
+        ;;
     esac
 }
 
