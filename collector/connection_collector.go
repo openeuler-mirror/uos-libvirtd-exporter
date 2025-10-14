@@ -35,16 +35,19 @@ func NewConnectionCollector() *ConnectionCollector {
 		connectionAlive: prometheus.NewDesc(
 			"libvirt_connection_alive",
 			"Whether the connection to libvirt is alive (1=alive, 0=dead)",
-			nil, // No labels needed as there's only one connection
+			[]string{},
+			nil,
 		),
 		activeDomains: prometheus.NewDesc(
 			"libvirt_active_domains",
 			"Number of active domains",
+			[]string{},
 			nil,
 		),
 		inactiveDomains: prometheus.NewDesc(
 			"libvirt_inactive_domains",
 			"Number of inactive domains",
+			[]string{},
 			nil,
 		),
 
@@ -52,26 +55,31 @@ func NewConnectionCollector() *ConnectionCollector {
 		hostCPUCount: prometheus.NewDesc(
 			"libvirt_host_cpu_count",
 			"Number of CPU cores on the host",
+			[]string{},
 			nil,
 		),
 		hostMemoryTotal: prometheus.NewDesc(
 			"libvirt_host_memory_total_bytes",
 			"Total memory on the host in bytes",
+			[]string{},
 			nil,
 		),
 		hostMemoryFree: prometheus.NewDesc(
 			"libvirt_host_memory_free_bytes",
 			"Free memory on the host in bytes",
+			[]string{},
 			nil,
 		),
 		hostLibvirtVersion: prometheus.NewDesc(
 			"libvirt_host_libvirt_version",
 			"Version of libvirt",
+			[]string{},
 			nil,
 		),
 		hostHypervisorVersion: prometheus.NewDesc(
 			"libvirt_host_hypervisor_version",
 			"Version of the hypervisor",
+			[]string{},
 			nil,
 		),
 
