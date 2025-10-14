@@ -12,11 +12,6 @@ fi
 # 检查网络连接
 if [ -n "$REMOTE_HOST" ]; then
   echo "Checking connectivity to $REMOTE_HOST"
-  if ! ping -c 1 "$REMOTE_HOST" >/dev/null 2>&1; then
-    echo "ERROR: Cannot ping remote host $REMOTE_HOST"
-    exit 1
-  fi
-  
   if ! nc -zv "$REMOTE_HOST" 22 >/dev/null 2>&1; then
     echo "ERROR: Cannot connect to SSH port on $REMOTE_HOST"
     exit 1
