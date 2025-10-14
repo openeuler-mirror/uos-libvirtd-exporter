@@ -93,9 +93,29 @@ func (c *NetworkCollector) Collect(
 	conn *libvirt.Connect,
 	domain *libvirt.Domain,
 ) {
+	// Get domain info first to check if it's running
+	domainInfo, err := domain.GetInfo()
+	if err != nil {
+		log.Printf("Warning: Failed to get domain info for network metrics: %v", err)
+		return
+	}
+
+	// Only collect network metrics for running domains
+	if domainInfo.State != libvirt.DOMAIN_RUNNING {
+		// Silently skip non-running domains - this is expected behavior
+		return
+	}
+
 	metricsList, err := c.metricsCollector.CollectNetworkStats(conn, domain)
 	if err != nil {
-		log.Printf("Failed to collect network metrics: %v", err)
+		// Check if this is because domain is not running (expected for some operations)
+		if lverr, ok := err.(libvirt.Error); ok && lverr.Code == libvirt.ERR_OPERATION_INVALID {
+			// Domain stopped running between our check and metric collection - silently skip
+			return
+		}
+		// For other errors, log with more context
+		domainName, _ := domain.GetName()
+		log.Printf("Warning: Failed to collect network metrics for domain '%s': %v", domainName, err)
 		return
 	}
 
