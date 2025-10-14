@@ -3,6 +3,7 @@ package collector
 import (
 	"encoding/xml"
 	"log"
+	"strings"
 	"time"
 
 	"libvirt.org/go/libvirt"
@@ -574,10 +575,44 @@ func (mc *LibvirtMetricsCollector) CollectConnectionStats(
 		isAlive = false
 	}
 
-	// Get capabilities XML
-	capabilities, err := conn.GetCapabilities()
+	// Get hostname
+	hostname, err := conn.GetHostname()
 	if err != nil {
-		capabilities = ""
+		hostname = "unknown"
+	}
+
+	// Get libvirt version
+	libvirtVersion, err := conn.GetLibVersion()
+	if err != nil {
+		libvirtVersion = 0
+	}
+
+	// Get hypervisor version
+	hypervisorVersion, err := conn.GetVersion()
+	if err != nil {
+		hypervisorVersion = 0
+	}
+
+	// Get driver type from URI
+	driverType := "unknown"
+	if strings.HasPrefix(uri, "qemu") {
+		driverType = "qemu"
+	} else if strings.HasPrefix(uri, "xen") {
+		driverType = "xen"
+	} else if strings.HasPrefix(uri, "lxc") {
+		driverType = "lxc"
+	}
+
+	// Get node info
+	nodeInfo, err := conn.GetNodeInfo()
+	if err != nil {
+		nodeInfo = &libvirt.NodeInfo{}
+	}
+
+	// Get free memory
+	freeMemory, err := conn.GetFreeMemory()
+	if err != nil {
+		freeMemory = 0
 	}
 
 	// Get active domains count
@@ -591,23 +626,140 @@ func (mc *LibvirtMetricsCollector) CollectConnectionStats(
 		}
 	}
 
-	// Get inactive domains count
-	inactiveDomains, err := conn.ListAllDomains(libvirt.CONNECT_LIST_DOMAINS_INACTIVE)
+	// Get all defined domains count
+	definedDomains, err := conn.ListAllDomains(libvirt.CONNECT_LIST_DOMAINS_ACTIVE | libvirt.CONNECT_LIST_DOMAINS_INACTIVE)
 	if err != nil {
-		inactiveDomains = []libvirt.Domain{}
+		definedDomains = []libvirt.Domain{}
 	} else {
 		// Free the domains as we only need the count
-		for _, domain := range inactiveDomains {
+		for _, domain := range definedDomains {
 			domain.Free()
 		}
 	}
 
+	// Get storage pools
+	storagePools := []StoragePoolMetrics{}
+	pools, err := conn.ListAllStoragePools(0)
+	if err == nil {
+		for _, pool := range pools {
+			poolInfo, err := pool.GetInfo()
+			if err != nil {
+				pool.Free()
+				continue
+			}
+
+			poolName, err := pool.GetName()
+			if err != nil {
+				pool.Free()
+				continue
+			}
+
+			// Get volumes count by listing them
+			// Note: Simplified approach - not listing volumes for now
+			volumeCount := 0
+
+			state := "inactive"
+			active, err := pool.IsActive()
+			if err == nil && active {
+				state = "active"
+			}
+
+			// Get pool type from XML description
+			poolType := "unknown"
+			xmlDesc, err := pool.GetXMLDesc(0)
+			if err == nil {
+				var poolXML libvirtxml.StoragePool
+				if err := xml.Unmarshal([]byte(xmlDesc), &poolXML); err == nil {
+					poolType = poolXML.Type
+				}
+			}
+
+			storagePool := StoragePoolMetrics{
+				Name:       poolName,
+				Type:       poolType,
+				State:      state,
+				Capacity:   uint64(poolInfo.Capacity),
+				Allocation: uint64(poolInfo.Allocation),
+				Available:  uint64(poolInfo.Available),
+				Volumes:    volumeCount,
+			}
+			storagePools = append(storagePools, storagePool)
+			pool.Free()
+		}
+	}
+
+	// Get virtual networks
+	networks := []NetworkPoolMetrics{}
+	nets, err := conn.ListAllNetworks(0)
+	if err == nil {
+		for _, net := range nets {
+			netName, err := net.GetName()
+			if err != nil {
+				net.Free()
+				continue
+			}
+
+			bridge := ""
+			bridgeName, err := net.GetBridgeName()
+			if err == nil {
+				bridge = bridgeName
+			}
+
+			active, err := net.IsActive()
+			if err != nil {
+				active = false
+			}
+
+			network := NetworkPoolMetrics{
+				Name:   netName,
+				Active: active,
+				Bridge: bridge,
+			}
+			networks = append(networks, network)
+			net.Free()
+		}
+	}
+
+	// Get host interfaces
+	interfaces := []HostInterfaceMetrics{}
+	ifaces, err := conn.ListInterfaces()
+	if err == nil {
+		for _, ifaceName := range ifaces {
+			iface, err := conn.LookupInterfaceByName(ifaceName)
+			if err != nil {
+				continue
+			}
+
+			// Get interface statistics (simplified for now)
+			// Note: libvirt go bindings don't provide direct interface stats
+			// This would require parsing /proc/net/dev or using netlink
+			hostInterface := HostInterfaceMetrics{
+				Name:      ifaceName,
+				RxBytes:   0, // TODO: Implement interface statistics collection
+				TxBytes:   0,
+				RxPackets: 0,
+				TxPackets: 0,
+			}
+			interfaces = append(interfaces, hostInterface)
+			iface.Free()
+		}
+	}
+
 	metrics := &ConnectionMetrics{
-		URI:                 uri,
+		Hostname:            hostname,
+		LibvirtVersion:      uint64(libvirtVersion),
+		HypervisorVersion:   uint64(hypervisorVersion),
+		DriverType:          driverType,
 		IsAlive:             isAlive,
-		Capabilities:        capabilities,
-		ActiveDomainCount:   len(activeDomains),
-		InactiveDomainCount: len(inactiveDomains),
+		ActiveDomains:       len(activeDomains),
+		DefinedDomains:      len(definedDomains),
+		FreeMemoryBytes:     freeMemory,
+		TotalMemoryBytes:    uint64(nodeInfo.Memory) * 1024, // Convert from KB to bytes
+		TotalCPUs:           int(nodeInfo.Cpus),
+		HostCPUUsagePercent: 0.0, // TODO: Implement CPU usage calculation
+		StoragePools:        storagePools,
+		Networks:            networks,
+		Interfaces:          interfaces,
 	}
 
 	return metrics, nil

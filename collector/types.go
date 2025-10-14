@@ -1,18 +1,18 @@
 package collector
 
 import (
-	"libvirt.org/go/libvirt"
 	"time"
+	"libvirt.org/go/libvirt"
 )
 
 // DomainInfoMetrics represents the basic domain runtime information
 type DomainInfoMetrics struct {
-	Name          string  // domain name
-	UUID          string  // domain uuid
-	Status        float64 // domain state (running, paused, etc.)
-	StateReason   string  // optional: state reason description
-	CPUTime       float64 // accumulated CPU time (ns)
-	Uptime        float64 // uptime in seconds
+	Name          string    // domain name
+	UUID          string    // domain uuid
+	Status        float64   // domain state (running, paused, etc.)
+	StateReason   string    // optional: state reason description
+	CPUTime       float64   // accumulated CPU time (ns)
+	Uptime        float64   // uptime in seconds
 	HasUptime     bool
 	MemoryCurrent float64   // current memory usage (bytes)
 	MemoryMax     float64   // maximum configured memory (bytes)
@@ -56,10 +56,10 @@ type MemoryStatsMetrics struct {
 
 // NUMANodeMemory represents per-node memory statistics
 type NUMANodeMemory struct {
-	NodeID  int
-	UsedKB  uint64
-	TotalKB uint64
-	FreeKB  uint64
+	NodeID   int
+	UsedKB   uint64
+	TotalKB  uint64
+	FreeKB   uint64
 }
 
 // DiskMetrics represents raw disk I/O and capacity metrics
@@ -92,22 +92,22 @@ type BlockJobMetrics struct {
 
 // NetworkMetrics represents network interface statistics
 type NetworkMetrics struct {
-	Name        string
-	UUID        string
-	Interface   string
-	MACAddress  string
-	Type        string // bridge, macvtap, vhostuser, etc.
-	RxBytes     uint64
-	TxBytes     uint64
-	RxPackets   uint64
-	TxPackets   uint64
-	RxErrors    uint64
-	TxErrors    uint64
-	RxDrops     uint64
-	TxDrops     uint64
-	BandwidthRx uint64 // bandwidth limit (bps)
-	BandwidthTx uint64 // bandwidth limit (bps)
-	Multiqueue  bool
+	Name         string
+	UUID         string
+	Interface    string
+	MACAddress   string
+	Type         string // bridge, macvtap, vhostuser, etc.
+	RxBytes      uint64
+	TxBytes      uint64
+	RxPackets    uint64
+	TxPackets    uint64
+	RxErrors     uint64
+	TxErrors     uint64
+	RxDrops      uint64
+	TxDrops      uint64
+	BandwidthRx  uint64 // bandwidth limit (bps)
+	BandwidthTx  uint64 // bandwidth limit (bps)
+	Multiqueue   bool
 }
 
 // DeviceMetrics represents virtual devices attached to the domain
@@ -164,7 +164,52 @@ type SnapshotMetrics struct {
 	LastDelete time.Time
 }
 
-// HostMetrics represents host system metrics
+// ConnectionMetrics represents libvirt connection and host statistics
+type ConnectionMetrics struct {
+	Hostname            string
+	LibvirtVersion      uint64
+	HypervisorVersion   uint64
+	DriverType          string
+	IsAlive             bool
+	ActiveDomains       int
+	DefinedDomains      int
+	FreeMemoryBytes     uint64
+	TotalMemoryBytes    uint64
+	TotalCPUs           int
+	HostCPUUsagePercent float64
+	StoragePools        []StoragePoolMetrics
+	Networks            []NetworkPoolMetrics
+	Interfaces          []HostInterfaceMetrics
+}
+
+// StoragePoolMetrics represents storage pool stats
+type StoragePoolMetrics struct {
+	Name       string
+	Type       string
+	State      string
+	Capacity   uint64
+	Allocation uint64
+	Available  uint64
+	Volumes    int
+}
+
+// NetworkPoolMetrics represents virtual network stats
+type NetworkPoolMetrics struct {
+	Name   string
+	Active bool
+	Bridge string
+}
+
+// HostInterfaceMetrics represents physical NIC stats on host
+type HostInterfaceMetrics struct {
+	Name      string
+	RxBytes   uint64
+	TxBytes   uint64
+	RxPackets uint64
+	TxPackets uint64
+}
+
+// HostMetrics represents host system metrics (deprecated, use ConnectionMetrics)
 type HostMetrics struct {
 	Name              string
 	TotalCPUCount     uint64
@@ -174,15 +219,6 @@ type HostMetrics struct {
 	Hostname          string
 	LibvirtVersion    uint64
 	HypervisorVersion uint64
-}
-
-// ConnectionMetrics represents libvirt connection metrics
-type ConnectionMetrics struct {
-	URI                 string
-	IsAlive             bool
-	Capabilities        string
-	ActiveDomainCount   int
-	InactiveDomainCount int
 }
 
 // ExporterMetrics represents exporter self-monitoring metrics
@@ -196,18 +232,6 @@ type ExporterMetrics struct {
 	CacheMisses       uint64
 	BuildVersion      string
 	BuildCommit       string
-}
-
-// DomainMetrics aggregates all metrics for one domain
-type DomainMetrics struct {
-	Info     DomainInfoMetrics
-	CPU      CPUStatsMetrics
-	Memory   MemoryStatsMetrics
-	Disks    []DiskMetrics
-	Networks []NetworkMetrics
-	Devices  DeviceMetrics
-	Job      *DomainJobMetrics
-	Snapshot SnapshotMetrics
 }
 
 // MetricsCollector defines interface for collecting raw metrics from libvirt
@@ -250,4 +274,16 @@ type MetricsCollector interface {
 	CollectHostStats(
 		conn *libvirt.Connect,
 	) (*HostMetrics, error)
+}
+
+// DomainMetrics aggregates all metrics for one domain
+type DomainMetrics struct {
+	Info     DomainInfoMetrics
+	CPU      CPUStatsMetrics
+	Memory   MemoryStatsMetrics
+	Disks    []DiskMetrics
+	Networks []NetworkMetrics
+	Devices  DeviceMetrics
+	Job      *DomainJobMetrics
+	Snapshot SnapshotMetrics
 }
