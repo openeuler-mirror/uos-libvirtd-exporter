@@ -28,6 +28,7 @@ type LibvirtCollector struct {
 	mutex        sync.RWMutex
 	collectors   []Collector
 	reconnectErr chan error
+	exporterCollector *ExporterCollector
 }
 
 // NewLibvirtCollector creates a new LibvirtCollector
@@ -52,6 +53,8 @@ func NewLibvirtCollector(uri string) (*LibvirtCollector, error) {
 	}
 
 	// Initialize individual collectors
+	collector.exporterCollector = NewExporterCollector()
+	collector.collectors = append(collector.collectors, collector.exporterCollector)
 	collector.collectors = append(collector.collectors, NewDomainInfoCollector())
 	collector.collectors = append(collector.collectors, NewCPUCollector())
 	collector.collectors = append(collector.collectors, NewMemoryCollector())
@@ -115,6 +118,11 @@ func (c *LibvirtCollector) Collect(ch chan<- prometheus.Metric) {
 		for _, collector := range c.collectors {
 			collector.Collect(ch, c.conn, &domain)
 		}
+	}
+
+	// Update exporter metrics
+	if c.exporterCollector != nil {
+		c.exporterCollector.SetDomainsFound(len(domains))
 	}
 }
 
