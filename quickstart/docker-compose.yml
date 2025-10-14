@@ -8,8 +8,12 @@ services:
       - "9177:9177"
     volumes:
       - /var/run/libvirt/libvirt-sock:/var/run/libvirt/libvirt-sock:ro
+      - $HOME/.ssh/id_rsa:/root/.ssh/id_rsa:ro
+      - $HOME/.ssh/id_rsa.pub:/root/.ssh/id_rsa.pub:ro
       - ../config.yaml:/etc/uos-libvirtd-exporter/config.yaml:ro
     privileged: true
+    environment:
+      - LIBVIRT_REMOTE_HOST=10.7.62.199
     restart: unless-stopped
     depends_on:
       - prometheus

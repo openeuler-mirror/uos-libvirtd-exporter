@@ -31,6 +31,7 @@ RUN sed -i 's|https://dl-cdn.alpinelinux.org/alpine/|https://mirrors.ustc.edu.cn
 
 # Install runtime dependencies
 RUN apk add --no-cache libvirt-client openssh-client
+RUN apk add --no-cache iputils curl net-tools wget
 
 # Create non-root user
 # RUN adduser -D -g '' exporter
@@ -40,6 +41,9 @@ COPY --from=builder /build/uos-libvirtd-exporter /usr/local/bin/uos-libvirtd-exp
 
 # Copy config file
 COPY --from=builder /build/config.yaml /etc/uos-libvirtd-exporter/config.yaml
+COPY --from=builder /build/quickstart/entrypoint.sh /entrypoint.sh
+
+RUN chmod +x /entrypoint.sh
 
 # # Change ownership
 # RUN chown exporter:exporter /usr/local/bin/uos-libvirtd-exporter
@@ -56,4 +60,4 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
   CMD wget --no-verbose --tries=1 --spider http://localhost:9177/ || exit 1
 
 # Run the exporter
-ENTRYPOINT ["/usr/local/bin/uos-libvirtd-exporter"]
+ENTRYPOINT ["/entrypoint.sh"]
