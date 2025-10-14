@@ -268,4 +268,10 @@ type MetricsCollector interface {
 		conn *libvirt.Connect,
 		domain *libvirt.Domain,
 	) (*SnapshotMetrics, error)
+	CollectConnectionStats(
+		conn *libvirt.Connect,
+	) (*ConnectionMetrics, error)
+	CollectHostStats(
+		conn *libvirt.Connect,
+	) (*HostMetrics, error)
 }

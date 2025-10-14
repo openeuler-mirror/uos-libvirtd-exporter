@@ -200,3 +200,8 @@ func (c *MemoryCollector) Collect(
 		metrics.UUID,
 	)
 }
+
+// Reset implements the Collector interface
+func (c *MemoryCollector) Reset() {
+	// No internal state to reset
+}

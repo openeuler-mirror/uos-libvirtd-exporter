@@ -158,3 +158,8 @@ func (c *CPUCollector) Collect(
 		)
 	}
 }
+
+// Reset implements the Collector interface
+func (c *CPUCollector) Reset() {
+	// No internal state to reset
+}

@@ -558,6 +558,99 @@ func (mc *LibvirtMetricsCollector) CollectSnapshotStats(
 	return metrics, nil
 }
 
+// CollectConnectionStats collects connection and host level statistics
+func (mc *LibvirtMetricsCollector) CollectConnectionStats(
+	conn *libvirt.Connect,
+) (*ConnectionMetrics, error) {
+	// Get connection URI
+	uri, err := conn.GetURI()
+	if err != nil {
+		uri = "unknown"
+	}
+
+	// Check if connection is alive
+	isAlive, err := conn.IsAlive()
+	if err != nil {
+		isAlive = false
+	}
+
+	// Get capabilities XML
+	capabilities, err := conn.GetCapabilities()
+	if err != nil {
+		capabilities = ""
+	}
+
+	// Get active domains count
+	activeDomains, _, err := conn.ListDomains()
+	if err != nil {
+		activeDomains = []uint{}
+	}
+
+	// Get inactive domains count
+	inactiveDomains, err := conn.ListDefinedDomains()
+	if err != nil {
+		inactiveDomains = []string{}
+	}
+
+	metrics := &ConnectionMetrics{
+		URI:                 uri,
+		IsAlive:             isAlive,
+		Capabilities:        capabilities,
+		ActiveDomainCount:   len(activeDomains),
+		InactiveDomainCount: len(inactiveDomains),
+	}
+
+	return metrics, nil
+}
+
+// CollectHostStats collects host level statistics
+func (mc *LibvirtMetricsCollector) CollectHostStats(
+	conn *libvirt.Connect,
+) (*HostMetrics, error) {
+	// Get hostname
+	hostname, err := conn.GetHostname()
+	if err != nil {
+		hostname = "unknown"
+	}
+
+	// Get node info
+	nodeInfo, err := conn.GetNodeInfo()
+	if err != nil {
+		return nil, err
+	}
+
+	// Get free memory
+	freeMemory, err := conn.GetFreeMemory()
+	if err != nil {
+		freeMemory = 0
+	}
+
+	// Get libvirt version
+	libvirtVersion, err := conn.GetLibVersion()
+	if err != nil {
+		libvirtVersion = 0
+	}
+
+	// Get hypervisor version
+	hypervisorVersion, err := conn.GetVersion()
+	if err != nil {
+		hypervisorVersion = 0
+	}
+
+	metrics := &HostMetrics{
+		Name:              hostname,
+		TotalCPUCount:     uint64(nodeInfo.Cpus),
+		OnlineCPUCount:    uint64(nodeInfo.Cpus), // Simplified, assuming all CPUs are online
+		TotalMemoryBytes:  uint64(nodeInfo.Memory) * 1024, // Convert from KB to bytes
+		FreeMemoryBytes:   freeMemory,
+		Hostname:          hostname,
+		LibvirtVersion:    libvirtVersion,
+		HypervisorVersion: hypervisorVersion,
+	}
+
+	return metrics, nil
+}
+
 // Helper function to convert job type to string
 func jobTypeToString(jobType libvirt.DomainJobType) string {
 	switch jobType {

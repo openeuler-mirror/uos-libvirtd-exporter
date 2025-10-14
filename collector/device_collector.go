@@ -99,3 +99,8 @@ func (c *DeviceCollector) Collect(
 		)
 	}
 }
+
+// Reset implements the Collector interface
+func (c *DeviceCollector) Reset() {
+	// No internal state to reset
+}

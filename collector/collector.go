@@ -17,6 +17,8 @@ type Collector interface {
 		conn *libvirt.Connect,
 		domain *libvirt.Domain,
 	)
+	// Reset any internal state between scrapes
+	Reset()
 }
 
 // LibvirtCollector implements the prometheus.Collector interface
@@ -56,6 +58,7 @@ func NewLibvirtCollector(uri string) (*LibvirtCollector, error) {
 	collector.collectors = append(collector.collectors, NewDiskCollector())
 	collector.collectors = append(collector.collectors, NewNetworkCollector())
 	collector.collectors = append(collector.collectors, NewDeviceCollector())
+	collector.collectors = append(collector.collectors, NewConnectionCollector())
 
 	return collector, nil
 }
@@ -101,6 +104,12 @@ func (c *LibvirtCollector) Collect(ch chan<- prometheus.Metric) {
 		}
 	}()
 
+	// Reset all collectors to prepare for a new scrape
+	for _, collector := range c.collectors {
+		collector.Reset()
+	}
+
+	// Collect domain metrics
 	for _, domain := range domains {
 		// Use individual collectors to gather metrics
 		for _, collector := range c.collectors {
