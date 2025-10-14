@@ -1,6 +1,6 @@
 [Unit]
 Description=UOS Libvirt Exporter
-Documentation=https://github.com/openeuler/uos-libvirtd-exporter
+Documentation=https://gitee.com/openeuler/uos-libvirtd-exporter
 After=network.target libvirtd.service
 Wants=libvirtd.service
 

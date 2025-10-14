@@ -41,7 +41,7 @@ Prometheus Server ──HTTP──> UOS Libvirt Exporter ──libvirt API──
 
 ```bash
 # Download the latest version
-wget https://github.com/openeuler/uos-libvirtd-exporter/releases/latest/download/uos-libvirtd-exporter-linux-amd64.tar.gz
+wget https://gitee.com/openeuler/uos-libvirtd-exporter/releases/latest/download/uos-libvirtd-exporter-linux-amd64.tar.gz
 
 # Extract
 tar -xzf uos-libvirtd-exporter-linux-amd64.tar.gz
@@ -55,7 +55,7 @@ sudo chmod +x /usr/local/bin/uos-libvirtd-exporter
 
 ```bash
 # Clone the repository
-git clone https://github.com/openeuler/uos-libvirtd-exporter.git
+git clone https://gitee.com/openeuler/uos-libvirtd-exporter.git
 cd uos-libvirtd-exporter
 
 # Download dependencies
