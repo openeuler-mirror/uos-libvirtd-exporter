@@ -113,7 +113,7 @@ func (mc *LibvirtMetricsCollector) CollectCPUStats(
 	vcpuInfo, err := domain.GetVcpus()
 	if err != nil {
 		// If we can't get vcpu info, use a default
-		vcpuInfo = make([]libvirt.VcpuInfo, 0)
+		vcpuInfo = make([]libvirt.DomainVcpuInfo, 0)
 	}
 
 	metrics := &CPUStatsMetrics{
@@ -210,16 +210,10 @@ func (mc *LibvirtMetricsCollector) CollectDiskStats(
 
 	var metrics []DiskMetrics
 
-	// Use dynamic discovery instead of hardcoding device names
-	blockStats, err := domain.ListAllBlockStats(0)
-	if err != nil {
-		return nil, err
-	}
+	// For now, try to get stats for common devices
+	devices := []string{"vda", "vdb", "sda", "sdb", "hda", "hdb"}
 
-	for _, blockStat := range blockStats {
-		device := blockStat.Device
-		path := blockStat.Path
-
+	for _, device := range devices {
 		// Get detailed block stats
 		stats, err := domain.BlockStatsFlags(device, 0)
 		if err != nil {
@@ -233,7 +227,7 @@ func (mc *LibvirtMetricsCollector) CollectDiskStats(
 				Name:       domainName,
 				UUID:       domainUUID,
 				Device:     device,
-				Path:       path,
+				Path:       "/dev/" + device,
 				ReadBytes:  uint64(basicStats.RdBytes),
 				WriteBytes: uint64(basicStats.WrBytes),
 				ReadOps:    uint64(basicStats.RdReq),
@@ -245,19 +239,16 @@ func (mc *LibvirtMetricsCollector) CollectDiskStats(
 				Name:        domainName,
 				UUID:        domainUUID,
 				Device:      device,
-				Path:        path,
-				ReadBytes:   stats.RdBytesSet,
-				WriteBytes:  stats.WrBytesSet,
-				ReadOps:     stats.RdReqsSet,
-				WriteOps:    stats.WrReqsSet,
-				ReadTimeNs:  stats.RdTotalTimesSet,
-				WriteTimeNs: stats.WrTotalTimesSet,
+				Path:        "/dev/" + device,
+				ReadBytes:   uint64(stats.RdBytes),
+				WriteBytes:  uint64(stats.WrBytes),
+				ReadOps:     uint64(stats.RdReq),
+				WriteOps:    uint64(stats.WrReq),
+				ReadTimeNs:  uint64(stats.RdTotalTimes),
+				WriteTimeNs: uint64(stats.WrTotalTimes),
 			}
 			metrics = append(metrics, m)
 		}
-
-		// Free the block stat
-		blockStat.Free()
 	}
 
 	return metrics, nil
@@ -290,16 +281,11 @@ func (mc *LibvirtMetricsCollector) CollectNetworkStats(
 
 	var metrics []NetworkMetrics
 
-	// Use dynamic discovery instead of hardcoding interface names
-	interfaceStats, err := domain.ListAllInterfaceStats(0)
-	if err != nil {
-		return nil, err
-	}
+	// For now, try to get stats for common interfaces
+	interfaces := []string{"eth0", "eth1", "ens3", "ens4", "vnet0", "vnet1"}
 
-	for _, ifaceStat := range interfaceStats {
-		ifaceName := ifaceStat.Device
-
-		// Get detailed interface stats
+	for _, ifaceName := range interfaces {
+		// Get interface stats
 		stats, err := domain.InterfaceStats(ifaceName)
 		if err != nil {
 			continue
@@ -319,9 +305,6 @@ func (mc *LibvirtMetricsCollector) CollectNetworkStats(
 			TxDrops:   uint64(stats.TxDrop),
 		}
 		metrics = append(metrics, m)
-
-		// Free the interface stat
-		ifaceStat.Free()
 	}
 
 	return metrics, nil
@@ -390,7 +373,9 @@ func (mc *LibvirtMetricsCollector) CollectJobStats(
 		metrics.Remaining = jobInfo.DataRemaining
 		metrics.Transferred = jobInfo.DataProcessed
 		metrics.Total = jobInfo.DataTotal
-		metrics.SpeedBps = jobInfo.DataThroughput
+		if jobInfo.DiskBpsSet {
+			metrics.SpeedBps = jobInfo.DiskBps
+		}
 	}
 
 	return metrics, nil
