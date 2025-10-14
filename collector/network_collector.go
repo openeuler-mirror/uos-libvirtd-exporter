@@ -193,3 +193,8 @@ func (c *NetworkCollector) Collect(
 		)
 	}
 }
+
+// Reset implements the Collector interface
+func (c *NetworkCollector) Reset() {
+	// No internal state to reset
+}

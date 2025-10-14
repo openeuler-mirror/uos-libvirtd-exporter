@@ -162,3 +162,8 @@ func (c *DiskCollector) Collect(
 		}
 	}
 }
+
+// Reset implements the Collector interface
+func (c *DiskCollector) Reset() {
+	// No internal state to reset
+}

@@ -184,3 +184,8 @@ func (c *DomainInfoCollector) Collect(
 		)
 	}
 }
+
+// Reset implements the Collector interface
+func (c *DomainInfoCollector) Reset() {
+	// No internal state to reset
+}
