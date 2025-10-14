@@ -33,7 +33,7 @@ RUN sed -i 's|https://dl-cdn.alpinelinux.org/alpine/|https://mirrors.ustc.edu.cn
 RUN apk add --no-cache libvirt-client openssh-client
 
 # Create non-root user
-RUN adduser -D -g '' exporter
+# RUN adduser -D -g '' exporter
 
 # Copy binary from builder
 COPY --from=builder /build/uos-libvirtd-exporter /usr/local/bin/uos-libvirtd-exporter
@@ -41,12 +41,12 @@ COPY --from=builder /build/uos-libvirtd-exporter /usr/local/bin/uos-libvirtd-exp
 # Copy config file
 COPY --from=builder /build/config.yaml /etc/uos-libvirtd-exporter/config.yaml
 
-# Change ownership
-RUN chown exporter:exporter /usr/local/bin/uos-libvirtd-exporter
-RUN chown exporter:exporter /etc/uos-libvirtd-exporter/config.yaml
+# # Change ownership
+# RUN chown exporter:exporter /usr/local/bin/uos-libvirtd-exporter
+# RUN chown exporter:exporter /etc/uos-libvirtd-exporter/config.yaml
 
-# Switch to non-root user
-USER exporter
+# # Switch to non-root user
+# USER exporter
 
 # Expose metrics port
 EXPOSE 9177
