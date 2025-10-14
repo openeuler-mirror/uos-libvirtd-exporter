@@ -7,12 +7,12 @@ services:
     ports:
       - "9177:9177"
     volumes:
-      - /var/run/libvirt/libvirt-sock:/var/run/libvirt/libvirt-sock:ro
-      - $HOME/.ssh/id_rsa:/root/.ssh/id_rsa:ro
-      - $HOME/.ssh/id_rsa.pub:/root/.ssh/id_rsa.pub:ro
-      - ../config.yaml:/etc/uos-libvirtd-exporter/config.yaml:ro
-    privileged: true
+      # 挂载 SSH 密钥
+      - $HOME/.ssh:/root/.ssh
+      # 挂载自定义配置文件（可选）
+      # - ../config.yaml:/etc/uos-libvirtd-exporter/config.yaml:ro
     environment:
+      - LIBVIRT_URI=qemu+ssh://root@10.7.62.199/system
       - LIBVIRT_REMOTE_HOST=10.7.62.199
     restart: unless-stopped
     depends_on:
