@@ -31,7 +31,7 @@ quickstart/
 
 ```bash
 # 克隆项目
-git clone https://github.com/openeuler/uos-libvirtd-exporter.git
+git clone https://gitee.com/openeuler/uos-libvirtd-exporter.git
 cd uos-libvirtd-exporter/quickstart
 
 # 启动所有服务
@@ -174,7 +174,7 @@ docker-compose down -v
 
 ## 相关链接
 
-- [UOS Libvirt Exporter GitHub](https://github.com/openeuler/uos-libvirtd-exporter)
+- [UOS Libvirt Exporter GitHub](https://gitee.com/openeuler/uos-libvirtd-exporter)
 - [Grafana](https://grafana.com/)
 - [Prometheus](https://prometheus.io/)
 - [Libvirt](https://libvirt.org/)
