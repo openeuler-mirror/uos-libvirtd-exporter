@@ -1,9 +1,12 @@
 package collector
 
 import (
+	"encoding/xml"
+	"log"
 	"time"
 
 	"libvirt.org/go/libvirt"
+	"libvirt.org/go/libvirtxml"
 )
 
 // LibvirtMetricsCollector implements MetricsCollector to fetch raw metrics from libvirt
@@ -210,8 +213,8 @@ func (mc *LibvirtMetricsCollector) CollectDiskStats(
 
 	var metrics []DiskMetrics
 
-	// For now, try to get stats for common devices
-	devices := []string{"vda", "vdb", "sda", "sdb", "hda", "hdb"}
+	// Try to discover devices dynamically
+	devices := mc.discoverBlockDevices(domain)
 
 	for _, device := range devices {
 		// Get detailed block stats
@@ -281,8 +284,8 @@ func (mc *LibvirtMetricsCollector) CollectNetworkStats(
 
 	var metrics []NetworkMetrics
 
-	// For now, try to get stats for common interfaces
-	interfaces := []string{"eth0", "eth1", "ens3", "ens4", "vnet0", "vnet1"}
+	// Try to discover interfaces dynamically
+	interfaces := mc.discoverNetworkInterfaces(domain)
 
 	for _, ifaceName := range interfaces {
 		// Get interface stats
@@ -308,6 +311,145 @@ func (mc *LibvirtMetricsCollector) CollectNetworkStats(
 	}
 
 	return metrics, nil
+}
+
+// discoverBlockDevices attempts to discover available block devices for a domain using XML parsing
+func (mc *LibvirtMetricsCollector) discoverBlockDevices(domain *libvirt.Domain) []string {
+	var devices []string
+
+	// Get domain XML description
+	xmlDesc, err := domain.GetXMLDesc(0)
+	if err != nil {
+		log.Printf("Warning: Failed to get domain XML: %v", err)
+		return mc.fallbackBlockDeviceDiscovery(domain)
+	}
+
+	// Parse the XML
+	var domainXML libvirtxml.Domain
+	if err := xml.Unmarshal([]byte(xmlDesc), &domainXML); err != nil {
+		log.Printf("Warning: Failed to parse domain XML: %v", err)
+		return mc.fallbackBlockDeviceDiscovery(domain)
+	}
+
+	// Extract disk devices from XML
+	if domainXML.Devices != nil {
+		for _, disk := range domainXML.Devices.Disks {
+			if disk.Target != nil && disk.Target.Dev != "" {
+				devices = append(devices, disk.Target.Dev)
+			}
+		}
+	}
+
+	// If XML parsing didn't find any devices, fall back to trial-and-error
+	if len(devices) == 0 {
+		return mc.fallbackBlockDeviceDiscovery(domain)
+	}
+
+	return devices
+}
+
+// fallbackBlockDeviceDiscovery uses trial-and-error method as fallback
+func (mc *LibvirtMetricsCollector) fallbackBlockDeviceDiscovery(domain *libvirt.Domain) []string {
+	var devices []string
+
+	// Common block device patterns in virtualized environments
+	commonDevices := []string{
+		// VirtIO block devices (KVM/QEMU)
+		"vda", "vdb", "vdc", "vdd", "vde", "vdf",
+		// SCSI devices
+		"sda", "sdb", "sdc", "sdd", "sde", "sdf",
+		// IDE devices
+		"hda", "hdb", "hdc", "hdd",
+		// NVMe devices
+		"nvme0n1", "nvme1n1", "nvme2n1",
+		// Xen devices
+		"xvda", "xvdb", "xvdc", "xvdd",
+	}
+
+	// Test each device to see if it exists
+	for _, device := range commonDevices {
+		// Try to get stats - if successful, device exists
+		_, err := domain.BlockStatsFlags(device, 0)
+		if err == nil {
+			devices = append(devices, device)
+			continue
+		}
+		// Try basic stats as fallback
+		_, err = domain.BlockStats(device)
+		if err == nil {
+			devices = append(devices, device)
+		}
+	}
+
+	return devices
+}
+
+// discoverNetworkInterfaces attempts to discover available network interfaces for a domain using XML parsing
+func (mc *LibvirtMetricsCollector) discoverNetworkInterfaces(domain *libvirt.Domain) []string {
+	var interfaces []string
+
+	// Get domain XML description
+	xmlDesc, err := domain.GetXMLDesc(0)
+	if err != nil {
+		log.Printf("Warning: Failed to get domain XML for interfaces: %v", err)
+		return mc.fallbackNetworkInterfaceDiscovery(domain)
+	}
+
+	// Parse the XML
+	var domainXML libvirtxml.Domain
+	if err := xml.Unmarshal([]byte(xmlDesc), &domainXML); err != nil {
+		log.Printf("Warning: Failed to parse domain XML for interfaces: %v", err)
+		return mc.fallbackNetworkInterfaceDiscovery(domain)
+	}
+
+	// Extract network interfaces from XML
+	if domainXML.Devices != nil {
+		for _, iface := range domainXML.Devices.Interfaces {
+			if iface.Target != nil && iface.Target.Dev != "" {
+				interfaces = append(interfaces, iface.Target.Dev)
+			}
+		}
+	}
+
+	// If XML parsing didn't find any interfaces, fall back to trial-and-error
+	if len(interfaces) == 0 {
+		return mc.fallbackNetworkInterfaceDiscovery(domain)
+	}
+
+	return interfaces
+}
+
+// fallbackNetworkInterfaceDiscovery uses trial-and-error method as fallback
+func (mc *LibvirtMetricsCollector) fallbackNetworkInterfaceDiscovery(domain *libvirt.Domain) []string {
+	var interfaces []string
+
+	// Common network interface patterns
+	commonInterfaces := []string{
+		// Standard Ethernet
+		"eth0", "eth1", "eth2", "eth3", "eth4", "eth5",
+		// Predictable interface names (systemd)
+		"ens3", "ens4", "ens5", "ens6", "ens7", "ens8",
+		"enp0s3", "enp0s4", "enp0s5", "enp0s6", "enp0s7", "enp0s8",
+		"eno1", "eno2", "eno3", "eno4",
+		// libvirt virtual interfaces
+		"vnet0", "vnet1", "vnet2", "vnet3", "vnet4", "vnet5",
+		// VLAN interfaces
+		"eth0.1", "eth0.2", "eth1.1", "eth1.2",
+		// Bridge interfaces
+		"br0", "br1", "br2", "virbr0", "virbr1",
+		// Wireless
+		"wlan0", "wlan1", "wlp0s3", "wlp0s4",
+	}
+
+	// Test each interface to see if it exists
+	for _, iface := range commonInterfaces {
+		_, err := domain.InterfaceStats(iface)
+		if err == nil {
+			interfaces = append(interfaces, iface)
+		}
+	}
+
+	return interfaces
 }
 
 // CollectDeviceStats collects device statistics from libvirt
