@@ -51,8 +51,11 @@ func NewLibvirtCollector(uri string) (*LibvirtCollector, error) {
 
 	// Initialize individual collectors
 	collector.collectors = append(collector.collectors, NewDomainInfoCollector())
+	collector.collectors = append(collector.collectors, NewCPUCollector())
+	collector.collectors = append(collector.collectors, NewMemoryCollector())
 	collector.collectors = append(collector.collectors, NewDiskCollector())
 	collector.collectors = append(collector.collectors, NewNetworkCollector())
+	collector.collectors = append(collector.collectors, NewDeviceCollector())
 
 	return collector, nil
 }

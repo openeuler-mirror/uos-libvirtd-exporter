@@ -13,6 +13,8 @@ type DiskCollector struct {
 	vmDiskWriteBytes *prometheus.Desc
 	vmDiskReadOps    *prometheus.Desc
 	vmDiskWriteOps   *prometheus.Desc
+	vmDiskReadTime   *prometheus.Desc
+	vmDiskWriteTime  *prometheus.Desc
 	metricsCollector MetricsCollector
 }
 
@@ -43,6 +45,18 @@ func NewDiskCollector() *DiskCollector {
 			[]string{"domain", "uuid", "device"},
 			nil,
 		),
+		vmDiskReadTime: prometheus.NewDesc(
+			"libvirt_vm_disk_read_time_seconds_total",
+			"Total time spent reading from disk by the virtual machine",
+			[]string{"domain", "uuid", "device"},
+			nil,
+		),
+		vmDiskWriteTime: prometheus.NewDesc(
+			"libvirt_vm_disk_write_time_seconds_total",
+			"Total time spent writing to disk by the virtual machine",
+			[]string{"domain", "uuid", "device"},
+			nil,
+		),
 		metricsCollector: NewLibvirtMetricsCollector(),
 	}
 }
@@ -53,6 +67,8 @@ func (c *DiskCollector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- c.vmDiskWriteBytes
 	ch <- c.vmDiskReadOps
 	ch <- c.vmDiskWriteOps
+	ch <- c.vmDiskReadTime
+	ch <- c.vmDiskWriteTime
 }
 
 // Collect implements the Collector interface for DiskCollector
@@ -103,5 +119,26 @@ func (c *DiskCollector) Collect(
 			metrics.UUID,
 			metrics.Device,
 		)
+
+		// Only expose time metrics if they are available
+		if metrics.ReadTimeNs > 0 || metrics.WriteTimeNs > 0 {
+			ch <- prometheus.MustNewConstMetric(
+				c.vmDiskReadTime,
+				prometheus.CounterValue,
+				float64(metrics.ReadTimeNs)/1e9,
+				metrics.Name,
+				metrics.UUID,
+				metrics.Device,
+			)
+
+			ch <- prometheus.MustNewConstMetric(
+				c.vmDiskWriteTime,
+				prometheus.CounterValue,
+				float64(metrics.WriteTimeNs)/1e9,
+				metrics.Name,
+				metrics.UUID,
+				metrics.Device,
+			)
+		}
 	}
 }
