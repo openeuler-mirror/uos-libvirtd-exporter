@@ -23,6 +23,9 @@ if [ -n "$REMOTE_HOST" ]; then
   fi
 fi
 
-# 启动应用
-echo "Starting UOS Libvirt Exporter"
-exec /usr/local/bin/uos-libvirtd-exporter "$@"
+# 设置默认的libvirt URI，如果通过环境变量指定了URI，则使用环境变量中的值
+LIBVIRT_URI=${LIBVIRT_URI:-"qemu:///system"}
+
+# 启动应用，将libvirt URI作为参数传递
+echo "Starting UOS Libvirt Exporter with URI: $LIBVIRT_URI"
+exec /usr/local/bin/uos-libvirtd-exporter --libvirt.uri="$LIBVIRT_URI" "$@"
