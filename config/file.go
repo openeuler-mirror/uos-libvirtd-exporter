@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"os"
+	"path/filepath"
 
 	"go.yaml.in/yaml/v2"
 )
@@ -51,20 +53,56 @@ type MetricsConfig struct {
 	ExtraLabels map[string]string `yaml:"extra_labels"`
 }
 
+// getDefaultConfigPaths 返回默认配置文件路径列表，按优先级排序
+func getDefaultConfigPaths() []string {
+	return []string{
+		"./config.yaml",
+		"/etc/uos-libvirtd-exporter/config.yaml",
+	}
+}
+
 // LoadConfigFromFile loads configuration from YAML file
 func LoadConfigFromFile(configFile string) (*FileConfig, error) {
+	paths := []string{}
+	
 	if configFile == "" {
-		return nil, fmt.Errorf("config file path cannot be empty")
+		// 如果没有指定配置文件，则按照默认路径搜索
+		paths = getDefaultConfigPaths()
+	} else {
+		// 如果指定了配置文件，则只使用指定的路径
+		paths = []string{configFile}
 	}
 
-	// Read config file
-	data, err := ioutil.ReadFile(configFile)
+	var data []byte
+	var usedPath string
+	var err error
+	
+	// 按优先级顺序尝试加载配置文件
+	for _, path := range paths {
+		absPath, _ := filepath.Abs(path)
+		data, err = ioutil.ReadFile(absPath)
+		if err == nil {
+			usedPath = absPath
+			break
+		}
+		
+		// 如果是用户指定的配置文件且不存在，则返回错误
+		if configFile != "" {
+			return nil, fmt.Errorf("failed to read config file %s: %w", absPath, err)
+		}
+		
+		// 如果是默认路径且文件不存在，继续尝试下一个路径
+		if os.IsNotExist(err) {
+			continue
+		}
+		
+		// 其他错误，返回
+		return nil, fmt.Errorf("failed to read config file %s: %w", absPath, err)
+	}
+	
+	// 如果所有路径都尝试过了还是没有找到配置文件
 	if err != nil {
-		return nil, fmt.Errorf(
-			"failed to read config file %s: %w",
-			configFile,
-			err,
-		)
+		return nil, fmt.Errorf("failed to find config file in any of the default locations: %v", paths)
 	}
 
 	// Parse YAML
@@ -81,7 +119,7 @@ func LoadConfigFromFile(configFile string) (*FileConfig, error) {
 		return nil, fmt.Errorf("invalid configuration: %w", err)
 	}
 
-	log.Printf("Configuration loaded from file: %s", configFile)
+	log.Printf("Configuration loaded from file: %s", usedPath)
 	return &config, nil
 }
 

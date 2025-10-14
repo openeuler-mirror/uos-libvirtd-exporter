@@ -47,12 +47,17 @@ func ParseConfig() (*Config, error) {
 
 	flag.Parse()
 
-	// Load configuration from file if specified
-	if config.ConfigFile != "" {
-		fileConfig, err := LoadConfigFromFile(config.ConfigFile)
-		if err != nil {
+	// Load configuration from file if specified or use default paths
+	fileConfig, err := LoadConfigFromFile(config.ConfigFile)
+	if err != nil {
+		// 只有当用户指定了配置文件路径且加载失败时才返回错误
+		// 如果没有指定配置文件且默认路径下也没有配置文件，则使用命令行参数或默认值
+		if config.ConfigFile != "" {
 			return nil, fmt.Errorf("failed to load config file: %w", err)
 		}
+		// 如果是默认加载且没有找到配置文件，继续使用命令行参数
+		log.Println("No configuration file found, using command line arguments and default values")
+	} else {
 		config.FileConfig = fileConfig
 	}
 
@@ -117,11 +122,9 @@ func (c *Config) Log() {
 	)
 	log.Println("UOS Libvirt Exporter Configuration:")
 
-	if c.ConfigFile != "" {
-		log.Printf("  Config File      : %s", c.ConfigFile)
-		if c.FileConfig != nil {
-			c.FileConfig.Log()
-		}
+	if c.FileConfig != nil {
+		log.Printf("  Config File      : loaded")
+		c.FileConfig.Log()
 	} else {
 		log.Printf("  Libvirt URI      : %s", c.LibvirtURI)
 		log.Printf("  Listen Address   : %s", c.ListenAddr)
