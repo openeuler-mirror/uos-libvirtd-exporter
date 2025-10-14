@@ -48,8 +48,8 @@ docker-compose up -d
 服务启动后，可以通过以下地址访问：
 
 - **Grafana**: http://localhost:3000 (默认用户/密码: admin/admin)
-- **Prometheus**: http://localhost:9090
-- **Libvirt Exporter Metrics**: http://localhost:9100/metrics
+- **Prometheus**: http://localhost:9091
+- **Libvirt Exporter Metrics**: http://localhost:9177/metrics
 
 ### 验证部署
 
@@ -60,10 +60,10 @@ docker-compose up -d
 docker-compose ps
 
 # 检查 libvirt-exporter 指标
-curl http://localhost:9100/metrics
+curl http://localhost:9197/metrics
 
 # 检查 Prometheus 目标状态
-curl http://localhost:9090/api/v1/targets
+curl http://localhost:9091/api/v1/targets
 ```
 
 ## 仪表板说明
@@ -142,7 +142,7 @@ docker-compose logs libvirtd-exporter
 1. 检查 Prometheus 目标状态是否为 UP
 2. 验证 Prometheus 是否能抓取指标:
    ```bash
-   curl http://localhost:9090/api/v1/query?query=libvirt_domain_state
+   curl http://localhost:9091/api/v1/query?query=libvirt_domain_state
    ```
 
 ## 停止环境
