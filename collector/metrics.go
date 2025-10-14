@@ -164,49 +164,25 @@ type SnapshotMetrics struct {
 	LastDelete time.Time
 }
 
-// ConnectionMetrics represents libvirt connection and host statistics
+// HostMetrics represents host system metrics
+type HostMetrics struct {
+	Name              string
+	TotalCPUCount     uint64
+	OnlineCPUCount    uint64
+	TotalMemoryBytes  uint64
+	FreeMemoryBytes   uint64
+	Hostname          string
+	LibvirtVersion    uint64
+	HypervisorVersion uint64
+}
+
+// ConnectionMetrics represents libvirt connection metrics
 type ConnectionMetrics struct {
-	Hostname            string
-	LibvirtVersion      uint64
-	HypervisorVersion   uint64
-	DriverType          string
+	URI                 string
 	IsAlive             bool
-	ActiveDomains       int
-	DefinedDomains      int
-	FreeMemoryBytes     uint64
-	TotalMemoryBytes    uint64
-	TotalCPUs           int
-	HostCPUUsagePercent float64
-	StoragePools        []StoragePoolMetrics
-	Networks            []NetworkPoolMetrics
-	Interfaces          []HostInterfaceMetrics
-}
-
-// StoragePoolMetrics represents storage pool stats
-type StoragePoolMetrics struct {
-	Name       string
-	Type       string
-	State      string
-	Capacity   uint64
-	Allocation uint64
-	Available  uint64
-	Volumes    int
-}
-
-// NetworkPoolMetrics represents virtual network stats
-type NetworkPoolMetrics struct {
-	Name   string
-	Active bool
-	Bridge string
-}
-
-// HostInterfaceMetrics represents physical NIC stats on host
-type HostInterfaceMetrics struct {
-	Name      string
-	RxBytes   uint64
-	TxBytes   uint64
-	RxPackets uint64
-	TxPackets uint64
+	Capabilities        string
+	ActiveDomainCount   int
+	InactiveDomainCount int
 }
 
 // ExporterMetrics represents exporter self-monitoring metrics

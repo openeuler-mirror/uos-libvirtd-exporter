@@ -581,15 +581,25 @@ func (mc *LibvirtMetricsCollector) CollectConnectionStats(
 	}
 
 	// Get active domains count
-	activeDomains, _, err := conn.ListDomains()
+	activeDomains, err := conn.ListAllDomains(libvirt.CONNECT_LIST_DOMAINS_ACTIVE)
 	if err != nil {
-		activeDomains = []uint{}
+		activeDomains = []libvirt.Domain{}
+	} else {
+		// Free the domains as we only need the count
+		for _, domain := range activeDomains {
+			domain.Free()
+		}
 	}
 
 	// Get inactive domains count
-	inactiveDomains, err := conn.ListDefinedDomains()
+	inactiveDomains, err := conn.ListAllDomains(libvirt.CONNECT_LIST_DOMAINS_INACTIVE)
 	if err != nil {
-		inactiveDomains = []string{}
+		inactiveDomains = []libvirt.Domain{}
+	} else {
+		// Free the domains as we only need the count
+		for _, domain := range inactiveDomains {
+			domain.Free()
+		}
 	}
 
 	metrics := &ConnectionMetrics{
@@ -644,8 +654,8 @@ func (mc *LibvirtMetricsCollector) CollectHostStats(
 		TotalMemoryBytes:  uint64(nodeInfo.Memory) * 1024, // Convert from KB to bytes
 		FreeMemoryBytes:   freeMemory,
 		Hostname:          hostname,
-		LibvirtVersion:    libvirtVersion,
-		HypervisorVersion: hypervisorVersion,
+		LibvirtVersion:    uint64(libvirtVersion),
+		HypervisorVersion: uint64(hypervisorVersion),
 	}
 
 	return metrics, nil
